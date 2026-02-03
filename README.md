@@ -1,21 +1,47 @@
 # Analog Clock for Windows
 
-Windowsデスクトップに表示する透明背景のアナログ時計アプリケーションです。
+Windowsデスクトップに表示するスタイリッシュなアナログ時計アプリケーションです。
+
+![Analog Clock](https://img.shields.io/badge/platform-Windows-blue)
+![Build](https://github.com/yoshimomax/AnalogClock/actions/workflows/build.yml/badge.svg)
 
 ## 特徴
 
-- **透明背景** - 時計の外側は完全に透明（Windows専用機能）
+- **透明背景** - 時計の外側は完全に透明
+- **スタイリッシュなデザイン** - SVGベースの美しい描画、グラデーション、ガラス風エフェクト
 - **文字盤の色選択** - 10種類のプリセットカラー + カスタムカラー
-- **不透明度調整** - 時計全体の不透明度を30%〜100%で調整
-- **サイズ調整** - 150px〜600pxでサイズを自由に変更
+- **不透明度調整** - 時計全体の不透明度を調整可能
+- **サイズ調整** - 150px〜500pxでサイズを自由に変更
 - **ドラッグ＆ドロップ** - 時計をドラッグしてデスクトップ上の好きな位置に移動
 - **目標時刻表示** - 設定した目標時刻を緑の破線で表示
 - **設定の自動保存** - 位置、サイズ、色などの設定を自動保存
+- **軽量** - Tauri使用で実行ファイルが小さい（約5-10MB）
 
-## 動作環境
+## インストール方法
 
-- **Windows 10/11** （透明背景機能はWindows専用）
-- Python 3.6以上（ソースから実行する場合）
+### 方法1: リリースからダウンロード（推奨）
+
+1. [Releases](../../releases) ページから最新版をダウンロード
+2. `AnalogClock_x64-setup.exe` を実行してインストール
+3. スタートメニューまたはデスクトップから起動
+
+### 方法2: 自分でビルド
+
+ローカルでビルドする場合は以下が必要です：
+- Node.js 18+
+- Rust
+- Visual Studio Build Tools
+
+```bash
+# 依存関係のインストール
+npm install
+
+# 開発モードで実行（ブラウザでプレビュー）
+npm run dev
+
+# アプリをビルド
+npm run tauri build
+```
 
 ## 操作方法
 
@@ -24,59 +50,16 @@ Windowsデスクトップに表示する透明背景のアナログ時計アプ�
 | 左クリック＆ドラッグ | 時計を移動 |
 | 右クリック | 設定パネルを開く |
 
-## インストール方法
-
-### 方法1: 実行ファイルを使用（推奨）
-
-1. Windowsで `build.py` を実行して実行ファイルを作成：
-   ```cmd
-   python build.py
-   ```
-
-2. `dist/AnalogClock.exe` を好きな場所にコピー
-
-3. ダブルクリックで起動
-
-### 方法2: Pythonで直接実行
-
-```cmd
-python analog_clock.py
-```
-
-#### 必要条件
-
-- Python 3.6以上
-- tkinter（通常Pythonに標準で含まれています）
-
-## 設定パネルの機能
+## 設定パネル
 
 右クリックで設定パネルが開きます：
 
 - **Opacity** - 時計全体の不透明度
-- **Size** - 時計のサイズ（150px〜600px）
+- **Size** - 時計のサイズ（150px〜500px）
 - **Face Color** - 文字盤の色（10種類のプリセット + カスタム）
 - **Target Time** - 目標時刻の表示（緑の破線）
-- **Always on top** - 常に最前面に表示
-- **Show second hand** - 秒針の表示/非表示
-
-## 設定ファイル
-
-設定は `clock_config.json` に自動保存されます（実行ファイルと同じフォルダ）：
-
-```json
-{
-  "size": 300,
-  "opacity": 1.0,
-  "position_x": 100,
-  "position_y": 100,
-  "face_color": "#FFFFFF",
-  "target_enabled": false,
-  "target_hour": 12,
-  "target_minute": 0,
-  "always_on_top": true,
-  "show_seconds": true
-}
-```
+- **Always on Top** - 常に最前面に表示
+- **Show Second Hand** - 秒針の表示/非表示
 
 ## プリセットカラー
 
@@ -94,3 +77,27 @@ python analog_clock.py
 | #1A1A2E | Dark Blue |
 
 暗い色を選択すると、文字と針の色が自動的に白に変更されます。
+
+## 技術スタック
+
+- **Frontend**: React + TypeScript + Vite
+- **Backend**: Tauri (Rust)
+- **Styling**: CSS3 with gradients and effects
+- **Build**: GitHub Actions
+
+## 開発
+
+```bash
+# 依存関係のインストール
+npm install
+
+# 開発サーバー起動（ブラウザでUIプレビュー）
+npm run dev
+
+# Tauriアプリとして起動（Rust環境が必要）
+npm run tauri dev
+```
+
+## ライセンス
+
+MIT License

@@ -1,5 +1,0 @@
-# Runtime dependencies
-# tkinter is included in Python standard library
-
-# Build dependencies (for creating executables)
-pyinstaller>=6.0.0

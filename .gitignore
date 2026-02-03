@@ -1,17 +1,22 @@
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-.env
-.venv
-env/
-venv/
+# Dependencies
+node_modules/
 
-# Build artifacts
-build/
+# Build outputs
 dist/
-*.spec
+src-tauri/target/
 
-# Config file (user-specific)
-clock_config.json
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Tauri
+src-tauri/Cargo.lock
