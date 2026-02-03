@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Build script for Analog Clock application.
-Creates standalone executables for Windows, macOS, and Linux.
+Build script for Analog Clock application (Windows only).
+Creates a standalone executable for Windows.
 """
 
 import subprocess
@@ -9,8 +9,18 @@ import sys
 import os
 import shutil
 
+
 def build():
     """Build the application using PyInstaller."""
+    # Check platform
+    if sys.platform != 'win32':
+        print("Warning: This application is designed for Windows.")
+        print("The transparent background feature requires Windows.")
+        response = input("Continue anyway? (y/N): ")
+        if response.lower() != 'y':
+            print("Build cancelled.")
+            sys.exit(0)
+
     # Ensure PyInstaller is installed
     try:
         import PyInstaller
@@ -25,7 +35,7 @@ def build():
     # Clean previous builds
     dist_dir = os.path.join(script_dir, 'dist')
     build_dir = os.path.join(script_dir, 'build')
-    spec_file = os.path.join(script_dir, 'analog_clock.spec')
+    spec_file = os.path.join(script_dir, 'AnalogClock.spec')
 
     for path in [dist_dir, build_dir]:
         if os.path.exists(path):
@@ -33,23 +43,16 @@ def build():
     if os.path.exists(spec_file):
         os.remove(spec_file)
 
-    # Determine platform-specific options
-    platform_opts = []
-    if sys.platform == 'win32':
-        platform_opts = ['--noconsole']  # Hide console on Windows
-    elif sys.platform == 'darwin':
-        platform_opts = ['--noconsole', '--windowed']  # macOS app bundle
-
-    # Build command
+    # Build command for Windows
     cmd = [
         sys.executable, '-m', 'PyInstaller',
-        '--onefile',           # Single executable
+        '--onefile',
+        '--noconsole',
         '--name', 'AnalogClock',
-        *platform_opts,
         main_script
     ]
 
-    print("Building Analog Clock...")
+    print("Building Analog Clock for Windows...")
     print(f"Command: {' '.join(cmd)}")
 
     try:
@@ -57,13 +60,17 @@ def build():
         print("\nBuild successful!")
         print(f"Executable is in: {dist_dir}")
 
-        # List the created files
         if os.path.exists(dist_dir):
             print("\nCreated files:")
             for f in os.listdir(dist_dir):
                 filepath = os.path.join(dist_dir, f)
                 size = os.path.getsize(filepath) / (1024 * 1024)
                 print(f"  - {f} ({size:.1f} MB)")
+
+            print("\nUsage:")
+            print("  1. Copy AnalogClock.exe to your desired location")
+            print("  2. Double-click to run")
+            print("  3. Right-click on the clock for settings")
 
     except subprocess.CalledProcessError as e:
         print(f"Build failed with error: {e}")

@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
 """
-Analog Clock Desktop Application
-A customizable analog clock with transparency, resizing, drag & drop,
-and target time indicator features.
+Analog Clock Desktop Application for Windows
+A customizable analog clock with transparent background, resizing, drag & drop,
+face color selection, and target time indicator features.
 """
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, colorchooser
 import math
 from datetime import datetime
 import json
 import os
 import sys
 
+# Transparent color key for Windows
+TRANSPARENT_COLOR = '#FF00FF'
+
 
 def get_config_path():
     """Get the path for the configuration file."""
     if getattr(sys, 'frozen', False):
-        # Running as compiled executable
         app_dir = os.path.dirname(sys.executable)
     else:
-        # Running as script
         app_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(app_dir, 'clock_config.json')
 
@@ -28,7 +29,7 @@ def get_config_path():
 class AnalogClock:
     DEFAULT_CONFIG = {
         'size': 300,
-        'transparency': 1.0,
+        'opacity': 1.0,
         'position_x': None,
         'position_y': None,
         'target_enabled': False,
@@ -36,7 +37,22 @@ class AnalogClock:
         'target_minute': 0,
         'always_on_top': True,
         'show_seconds': True,
+        'face_color': '#FFFFFF',
     }
+
+    # Preset colors for face
+    PRESET_COLORS = [
+        ('#FFFFFF', 'White'),
+        ('#F0F0F0', 'Light Gray'),
+        ('#E8E8E8', 'Silver'),
+        ('#FFFACD', 'Lemon'),
+        ('#E6F3FF', 'Light Blue'),
+        ('#E8FFE8', 'Light Green'),
+        ('#FFE8E8', 'Light Pink'),
+        ('#FFF0E0', 'Peach'),
+        ('#2C2C2C', 'Dark Gray'),
+        ('#1A1A2E', 'Dark Blue'),
+    ]
 
     def __init__(self, root):
         self.root = root
@@ -49,24 +65,20 @@ class AnalogClock:
         self.size = self.config['size']
         self.update_dimensions()
 
-        # Setup window
+        # Setup window with transparent background
         self.setup_window()
 
-        # Create main frame
-        self.main_frame = tk.Frame(root)
-        self.main_frame.pack(fill=tk.BOTH, expand=True)
-
-        # Create canvas
+        # Create canvas with transparent background
         self.canvas = tk.Canvas(
-            self.main_frame,
+            root,
             width=self.size,
             height=self.size,
-            bg='white',
+            bg=TRANSPARENT_COLOR,
             highlightthickness=0
         )
         self.canvas.pack()
 
-        # Bind drag events
+        # Setup drag with improved behavior
         self.setup_drag()
 
         # Bind right-click for settings
@@ -85,47 +97,71 @@ class AnalogClock:
         self.clock_radius = int(self.size * 0.45)
 
     def setup_window(self):
-        """Setup window properties."""
-        self.root.overrideredirect(True)  # Remove window decorations
+        """Setup window properties for Windows transparent background."""
+        self.root.overrideredirect(True)
         self.root.attributes('-topmost', self.config['always_on_top'])
 
-        # Set transparency
-        self.set_transparency(self.config['transparency'])
+        # Windows-specific: make the transparent color actually transparent
+        self.root.attributes('-transparentcolor', TRANSPARENT_COLOR)
+
+        # Set overall window opacity
+        self.set_opacity(self.config['opacity'])
+
+        # Set window background to transparent color
+        self.root.configure(bg=TRANSPARENT_COLOR)
 
         # Set position
         if self.config['position_x'] is not None:
             self.root.geometry(f"+{self.config['position_x']}+{self.config['position_y']}")
 
-    def set_transparency(self, value):
-        """Set window transparency (0.0 to 1.0)."""
-        self.config['transparency'] = value
+    def set_opacity(self, value):
+        """Set window opacity (0.0 to 1.0)."""
+        self.config['opacity'] = value
         try:
             self.root.attributes('-alpha', value)
         except tk.TclError:
-            pass  # Some systems don't support transparency
+            pass
 
     def setup_drag(self):
-        """Setup drag and drop functionality."""
-        self.drag_data = {'x': 0, 'y': 0}
+        """Setup improved drag and drop functionality."""
+        self.drag_data = {'dragging': False, 'start_x': 0, 'start_y': 0}
         self.canvas.bind('<Button-1>', self.on_drag_start)
         self.canvas.bind('<B1-Motion>', self.on_drag_motion)
         self.canvas.bind('<ButtonRelease-1>', self.on_drag_end)
 
     def on_drag_start(self, event):
-        """Record the starting position for drag."""
-        self.drag_data['x'] = event.x
-        self.drag_data['y'] = event.y
+        """Record the starting screen position for drag."""
+        self.drag_data['dragging'] = True
+        # Store the initial mouse position in screen coordinates
+        self.drag_data['start_x'] = self.root.winfo_pointerx()
+        self.drag_data['start_y'] = self.root.winfo_pointery()
+        # Store the initial window position
+        self.drag_data['win_x'] = self.root.winfo_x()
+        self.drag_data['win_y'] = self.root.winfo_y()
 
     def on_drag_motion(self, event):
-        """Move the window during drag."""
-        delta_x = event.x - self.drag_data['x']
-        delta_y = event.y - self.drag_data['y']
-        new_x = self.root.winfo_x() + delta_x
-        new_y = self.root.winfo_y() + delta_y
+        """Move the window during drag using screen coordinates."""
+        if not self.drag_data['dragging']:
+            return
+
+        # Get current mouse position in screen coordinates
+        current_x = self.root.winfo_pointerx()
+        current_y = self.root.winfo_pointery()
+
+        # Calculate delta from start position
+        delta_x = current_x - self.drag_data['start_x']
+        delta_y = current_y - self.drag_data['start_y']
+
+        # Calculate new window position
+        new_x = self.drag_data['win_x'] + delta_x
+        new_y = self.drag_data['win_y'] + delta_y
+
+        # Move window
         self.root.geometry(f"+{new_x}+{new_y}")
 
     def on_drag_end(self, event):
         """Save position when drag ends."""
+        self.drag_data['dragging'] = False
         self.config['position_x'] = self.root.winfo_x()
         self.config['position_y'] = self.root.winfo_y()
         self.save_config()
@@ -134,9 +170,8 @@ class AnalogClock:
         """Load configuration from file."""
         config_path = get_config_path()
         try:
-            with open(config_path, 'r') as f:
+            with open(config_path, 'r', encoding='utf-8') as f:
                 loaded = json.load(f)
-                # Merge with defaults to handle missing keys
                 config = self.DEFAULT_CONFIG.copy()
                 config.update(loaded)
                 return config
@@ -147,10 +182,10 @@ class AnalogClock:
         """Save configuration to file."""
         config_path = get_config_path()
         try:
-            with open(config_path, 'w') as f:
+            with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, indent=2)
         except IOError:
-            pass  # Silently fail if can't save
+            pass
 
     def resize_clock(self, new_size):
         """Resize the clock."""
@@ -158,27 +193,40 @@ class AnalogClock:
         self.config['size'] = new_size
         self.update_dimensions()
 
-        # Resize canvas
         self.canvas.config(width=self.size, height=self.size)
-
-        # Redraw
         self.canvas.delete('all')
         self.draw_clock_face()
         self.save_config()
+
+    def get_text_color(self):
+        """Determine text color based on face color brightness."""
+        face_color = self.config['face_color']
+        # Convert hex to RGB
+        r = int(face_color[1:3], 16)
+        g = int(face_color[3:5], 16)
+        b = int(face_color[5:7], 16)
+        # Calculate luminance
+        luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+        return '#FFFFFF' if luminance < 0.5 else '#333333'
 
     def draw_clock_face(self):
         """Draw the clock face with numbers and tick marks."""
         self.canvas.delete('face')
 
-        # Draw outer circle
+        face_color = self.config['face_color']
+        text_color = self.get_text_color()
+        tick_color = text_color
+        inner_circle_color = '#AAAAAA' if text_color == '#333333' else '#555555'
+
+        # Draw outer circle (clock face)
         self.canvas.create_oval(
             self.center - self.clock_radius,
             self.center - self.clock_radius,
             self.center + self.clock_radius,
             self.center + self.clock_radius,
             width=3,
-            outline='#333333',
-            fill='white',
+            outline=text_color,
+            fill=face_color,
             tags='face'
         )
 
@@ -190,18 +238,16 @@ class AnalogClock:
             self.center + inner_radius,
             self.center + inner_radius,
             width=1,
-            outline='#cccccc',
+            outline=inner_circle_color,
             tags='face'
         )
 
-        # Calculate font size based on clock size
         font_size = max(8, int(self.size * 0.04))
 
         # Draw hour marks and numbers
         for i in range(12):
             angle = math.radians(i * 30 - 90)
 
-            # Hour tick marks
             outer_x = self.center + (self.clock_radius - int(self.clock_radius * 0.08)) * math.cos(angle)
             outer_y = self.center + (self.clock_radius - int(self.clock_radius * 0.08)) * math.sin(angle)
             inner_x = self.center + (self.clock_radius - int(self.clock_radius * 0.17)) * math.cos(angle)
@@ -210,11 +256,10 @@ class AnalogClock:
             self.canvas.create_line(
                 inner_x, inner_y, outer_x, outer_y,
                 width=max(2, int(self.size * 0.008)),
-                fill='#333333',
+                fill=tick_color,
                 tags='face'
             )
 
-            # Hour numbers
             num = 12 if i == 0 else i
             num_x = self.center + (self.clock_radius - int(self.clock_radius * 0.28)) * math.cos(angle)
             num_y = self.center + (self.clock_radius - int(self.clock_radius * 0.28)) * math.sin(angle)
@@ -223,11 +268,12 @@ class AnalogClock:
                 num_x, num_y,
                 text=str(num),
                 font=('Helvetica', font_size, 'bold'),
-                fill='#333333',
+                fill=text_color,
                 tags='face'
             )
 
         # Draw minute tick marks
+        minute_tick_color = '#888888' if text_color == '#333333' else '#888888'
         for i in range(60):
             if i % 5 != 0:
                 angle = math.radians(i * 6 - 90)
@@ -239,7 +285,7 @@ class AnalogClock:
                 self.canvas.create_line(
                     inner_x, inner_y, outer_x, outer_y,
                     width=1,
-                    fill='#666666',
+                    fill=minute_tick_color,
                     tags='face'
                 )
 
@@ -250,8 +296,8 @@ class AnalogClock:
             self.center - center_size,
             self.center + center_size,
             self.center + center_size,
-            fill='#333333',
-            outline='#333333',
+            fill=text_color,
+            outline=text_color,
             tags='face'
         )
 
@@ -287,7 +333,6 @@ class AnalogClock:
         minute_angle = minute * 6
         hour_angle = hour * 30 + minute * 0.5
 
-        # Draw target hour hand (green, dashed)
         self.draw_hand(
             hour_angle,
             self.clock_radius * 0.5,
@@ -297,7 +342,6 @@ class AnalogClock:
             dashed=True
         )
 
-        # Draw target minute hand (green, dashed)
         self.draw_hand(
             minute_angle,
             self.clock_radius * 0.7,
@@ -312,40 +356,37 @@ class AnalogClock:
         self.canvas.delete('hands')
         self.canvas.delete('target')
 
-        # Draw target time first (behind current time)
         self.draw_target_hands()
 
-        # Get current time
         now = datetime.now()
         hours = now.hour % 12
         minutes = now.minute
         seconds = now.second
 
-        # Calculate angles
         second_angle = seconds * 6
         minute_angle = minutes * 6 + seconds * 0.1
         hour_angle = hours * 30 + minutes * 0.5
 
-        # Draw hands
-        # Hour hand
+        text_color = self.get_text_color()
+        hand_color = text_color
+        minute_hand_color = '#666666' if text_color == '#333333' else '#AAAAAA'
+
         self.draw_hand(
             hour_angle,
             self.clock_radius * 0.5,
             max(4, int(self.size * 0.015)),
-            '#333333',
+            hand_color,
             'hands'
         )
 
-        # Minute hand
         self.draw_hand(
             minute_angle,
             self.clock_radius * 0.7,
             max(3, int(self.size * 0.01)),
-            '#555555',
+            minute_hand_color,
             'hands'
         )
 
-        # Second hand
         if self.config['show_seconds']:
             self.draw_hand(
                 second_angle,
@@ -355,7 +396,6 @@ class AnalogClock:
                 'hands'
             )
 
-        # Draw center cap
         cap_size = max(3, int(self.size * 0.012))
         self.canvas.create_oval(
             self.center - cap_size,
@@ -367,7 +407,6 @@ class AnalogClock:
             tags='hands'
         )
 
-        # Schedule next update
         self.root.after(1000, self.update_clock)
 
     def show_settings(self, event=None):
@@ -378,29 +417,28 @@ class AnalogClock:
 
         self.settings_window = tk.Toplevel(self.root)
         self.settings_window.title("Settings")
-        self.settings_window.geometry("320x420")
+        self.settings_window.geometry("340x520")
         self.settings_window.resizable(False, False)
         self.settings_window.attributes('-topmost', True)
 
-        # Main frame with padding
         main = ttk.Frame(self.settings_window, padding="15")
         main.pack(fill=tk.BOTH, expand=True)
 
         row = 0
 
-        # --- Transparency ---
-        ttk.Label(main, text="Transparency:", font=('Helvetica', 10, 'bold')).grid(
+        # --- Opacity ---
+        ttk.Label(main, text="Opacity:", font=('Helvetica', 10, 'bold')).grid(
             row=row, column=0, sticky='w', pady=(0, 5))
         row += 1
 
-        self.transparency_var = tk.DoubleVar(value=self.config['transparency'])
-        transparency_scale = ttk.Scale(
-            main, from_=0.2, to=1.0,
-            variable=self.transparency_var,
+        self.opacity_var = tk.DoubleVar(value=self.config['opacity'])
+        opacity_scale = ttk.Scale(
+            main, from_=0.3, to=1.0,
+            variable=self.opacity_var,
             orient=tk.HORIZONTAL,
-            command=lambda v: self.set_transparency(float(v))
+            command=lambda v: self.set_opacity(float(v))
         )
-        transparency_scale.grid(row=row, column=0, sticky='ew', pady=(0, 15))
+        opacity_scale.grid(row=row, column=0, sticky='ew', pady=(0, 15))
         row += 1
 
         # --- Size ---
@@ -422,6 +460,36 @@ class AnalogClock:
 
         self.size_label = ttk.Label(size_frame, text=f"{self.config['size']}px", width=6)
         self.size_label.pack(side=tk.LEFT, padx=(10, 0))
+        row += 1
+
+        # --- Face Color ---
+        ttk.Label(main, text="Face Color:", font=('Helvetica', 10, 'bold')).grid(
+            row=row, column=0, sticky='w', pady=(0, 5))
+        row += 1
+
+        color_frame = ttk.Frame(main)
+        color_frame.grid(row=row, column=0, sticky='ew', pady=(0, 5))
+
+        # Preset color buttons
+        for i, (color, name) in enumerate(self.PRESET_COLORS):
+            btn = tk.Button(
+                color_frame,
+                bg=color,
+                width=2,
+                height=1,
+                relief=tk.RAISED,
+                borderwidth=2,
+                command=lambda c=color: self.set_face_color(c)
+            )
+            btn.grid(row=i // 5, column=i % 5, padx=2, pady=2)
+        row += 1
+
+        # Custom color button
+        custom_btn = ttk.Button(
+            main, text="Custom Color...",
+            command=self.choose_custom_color
+        )
+        custom_btn.grid(row=row, column=0, sticky='w', pady=(5, 15))
         row += 1
 
         # --- Target Time ---
@@ -501,8 +569,23 @@ class AnalogClock:
             command=self.quit_app
         ).pack(side=tk.LEFT)
 
-        # Configure column to expand
         main.columnconfigure(0, weight=1)
+
+    def set_face_color(self, color):
+        """Set the clock face color."""
+        self.config['face_color'] = color
+        self.canvas.delete('all')
+        self.draw_clock_face()
+        self.save_config()
+
+    def choose_custom_color(self):
+        """Open color chooser for custom face color."""
+        color = colorchooser.askcolor(
+            initialcolor=self.config['face_color'],
+            title="Choose Face Color"
+        )
+        if color[1]:
+            self.set_face_color(color[1])
 
     def on_size_change(self, value):
         """Handle size slider change."""
