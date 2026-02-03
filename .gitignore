@@ -7,3 +7,11 @@ __pycache__/
 .venv
 env/
 venv/
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Config file (user-specific)
+clock_config.json

@@ -1,3 +1,5 @@
-# Analog Clock Dependencies
-# tkinter is included with Python standard library
-# No additional packages required
+# Runtime dependencies
+# tkinter is included in Python standard library
+
+# Build dependencies (for creating executables)
+pyinstaller>=6.0.0
