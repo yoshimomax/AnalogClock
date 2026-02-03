@@ -34,20 +34,12 @@ export const PRESET_COLORS = [
 ]
 
 const STORAGE_KEY = 'analog-clock-settings'
-const isTauri = typeof window !== 'undefined' && '__TAURI__' in window
 
 export async function loadSettings(): Promise<Settings> {
   try {
-    if (isTauri) {
-      const { Store } = await import('@tauri-apps/api/store')
-      const store = new Store('.settings.json')
-      const saved = await store.get<Settings>('settings')
-      return saved ? { ...defaultSettings, ...saved } : defaultSettings
-    } else {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        return { ...defaultSettings, ...JSON.parse(saved) }
-      }
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      return { ...defaultSettings, ...JSON.parse(saved) }
     }
   } catch (e) {
     console.error('Failed to load settings:', e)
@@ -57,14 +49,7 @@ export async function loadSettings(): Promise<Settings> {
 
 export async function saveSettings(settings: Settings): Promise<void> {
   try {
-    if (isTauri) {
-      const { Store } = await import('@tauri-apps/api/store')
-      const store = new Store('.settings.json')
-      await store.set('settings', settings)
-      await store.save()
-    } else {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
-    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
   } catch (e) {
     console.error('Failed to save settings:', e)
   }

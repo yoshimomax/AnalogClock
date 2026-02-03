@@ -14,16 +14,6 @@ function App() {
     loadSettings().then(setSettings)
   }, [])
 
-  // Update window opacity when settings change
-  useEffect(() => {
-    if (isTauri) {
-      import('@tauri-apps/api/window').then(({ appWindow }) => {
-        // Tauri doesn't have direct opacity control, but we can use CSS
-        document.body.style.opacity = settings.opacity.toString()
-      })
-    }
-  }, [settings.opacity])
-
   const updateSettings = useCallback((newSettings: Partial<SettingsType>) => {
     setSettings(prev => {
       const updated = { ...prev, ...newSettings }
