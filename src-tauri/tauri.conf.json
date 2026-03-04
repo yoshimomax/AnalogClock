@@ -19,7 +19,9 @@
         "startDragging": true,
         "close": true,
         "setAlwaysOnTop": true,
-        "setPosition": true
+        "setPosition": true,
+        "setSize": true,
+        "setIgnoreCursorEvents": true
       }
     },
     "bundle": {

@@ -7,6 +7,7 @@ export interface Settings {
   targetMinute: number
   alwaysOnTop: boolean
   showSeconds: boolean
+  clickThrough: boolean
 }
 
 export const defaultSettings: Settings = {
@@ -18,6 +19,7 @@ export const defaultSettings: Settings = {
   targetMinute: 0,
   alwaysOnTop: true,
   showSeconds: true,
+  clickThrough: false,
 }
 
 export const PRESET_COLORS = [
