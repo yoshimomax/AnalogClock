@@ -14,8 +14,8 @@ type Corner = 'tl' | 'tr' | 'bl' | 'br'
 
 async function snapToCorner(corner: Corner) {
   if (!isTauri) return
-  const { appWindow, LogicalPosition } = await import('@tauri-apps/api/window')
-  const monitor = await appWindow.currentMonitor()
+  const { appWindow, LogicalPosition, currentMonitor } = await import('@tauri-apps/api/window')
+  const monitor = await currentMonitor()
   if (!monitor) return
 
   const scale = monitor.scaleFactor
