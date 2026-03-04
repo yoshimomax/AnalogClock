@@ -1,11 +1,37 @@
 import { useRef } from 'react'
 import { Settings as SettingsType, PRESET_COLORS } from '../utils/settings'
 
+const isTauri = '__TAURI__' in window
+
 interface SettingsProps {
   settings: SettingsType
   onUpdate: (settings: Partial<SettingsType>) => void
   onClose: () => void
   onQuit: () => void
+}
+
+type Corner = 'tl' | 'tr' | 'bl' | 'br'
+
+async function snapToCorner(corner: Corner) {
+  if (!isTauri) return
+  const { appWindow, LogicalPosition } = await import('@tauri-apps/api/window')
+  const monitor = await appWindow.currentMonitor()
+  if (!monitor) return
+
+  const scale = monitor.scaleFactor
+  const mX = monitor.position.x / scale
+  const mY = monitor.position.y / scale
+  const mW = monitor.size.width / scale
+  const mH = monitor.size.height / scale
+
+  const winSize = await appWindow.outerSize()
+  const wW = winSize.width / scale
+  const wH = winSize.height / scale
+
+  const x = (corner === 'tr' || corner === 'br') ? mX + mW - wW : mX
+  const y = (corner === 'bl' || corner === 'br') ? mY + mH - wH : mY
+
+  await appWindow.setPosition(new LogicalPosition(x, y))
 }
 
 export default function Settings({ settings, onUpdate, onClose, onQuit }: SettingsProps) {
@@ -132,6 +158,19 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Settin
             Show Second Hand
           </label>
         </div>
+
+        {/* Corner Snap */}
+        {isTauri && (
+          <div className="settings-section">
+            <label>Snap to Corner</label>
+            <div className="corner-snap-grid">
+              <button className="corner-btn" onClick={() => snapToCorner('tl')} title="Top Left">↖</button>
+              <button className="corner-btn" onClick={() => snapToCorner('tr')} title="Top Right">↗</button>
+              <button className="corner-btn" onClick={() => snapToCorner('bl')} title="Bottom Left">↙</button>
+              <button className="corner-btn" onClick={() => snapToCorner('br')} title="Bottom Right">↘</button>
+            </div>
+          </div>
+        )}
 
         {/* Buttons */}
         <div className="settings-buttons">

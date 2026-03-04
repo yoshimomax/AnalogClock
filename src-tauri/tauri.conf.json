@@ -18,7 +18,8 @@
       "window": {
         "startDragging": true,
         "close": true,
-        "setAlwaysOnTop": true
+        "setAlwaysOnTop": true,
+        "setPosition": true
       }
     },
     "bundle": {
