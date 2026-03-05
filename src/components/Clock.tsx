@@ -85,7 +85,7 @@ export default function Clock({
     <svg
       width={size}
       height={size}
-      style={{ filter: 'drop-shadow(0 4px 20px rgba(0,0,0,0.25))' }}
+      style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))' }}
     >
       <defs>
         {/* Gradient for clock face */}

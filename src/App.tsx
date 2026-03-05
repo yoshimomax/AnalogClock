@@ -7,9 +7,9 @@ import { Settings as SettingsType, defaultSettings, loadSettings, saveSettings }
 const isTauri = '__TAURI__' in window
 
 const LONG_PRESS_MS = 400
-const CORNER_SNAP_PX = 80
-const SETTINGS_W = 310
-const SETTINGS_H = 522
+const SETTINGS_W    = 310
+const SETTINGS_H    = 522
+const SETTINGS_GAP  = 12   // transparent gap between clock and settings panel
 const POS_KEY = 'clock-window-position'
 
 function App() {
@@ -79,12 +79,14 @@ function App() {
     })
   }, [settings.alwaysOnTop])
 
-  // Resize window when clock size changes (skip while settings panel is open)
+  // Resize window whenever clock size or settings-open state changes
   useEffect(() => {
-    if (!isTauri || showSettings) return
-    const s = settings.size + 50
+    if (!isTauri) return
+    const s = settings.size
+    const w = showSettings ? s + SETTINGS_GAP + SETTINGS_W : s
+    const h = showSettings ? Math.max(s, SETTINGS_H) : s
     import('@tauri-apps/api/window').then(({ appWindow, LogicalSize }) => {
-      appWindow.setSize(new LogicalSize(s, s))
+      appWindow.setSize(new LogicalSize(w, h))
     })
   }, [settings.size, showSettings])
 
@@ -101,8 +103,8 @@ function App() {
   // Click-through mode with cursor polling.
   // When enabled:
   //   - setIgnoreCursorEvents(true) → OS-level passthrough
-  //   - cursor over window         → clock fades to nearly invisible
-  //   - cursor in bottom-right zone (gear area) → interaction briefly restored
+  //   - cursor over clock face      → clock fades to nearly invisible
+  //   - cursor over wake-gear icon  → interaction restored so user can open settings
   useEffect(() => {
     if (!isTauri) return
 
@@ -144,19 +146,20 @@ function App() {
           const { appWindow } = await import('@tauri-apps/api/window')
           const [cx, cy] = await invoke<[number, number]>('get_cursor_pos')
           const pos = await appWindow.outerPosition()
-          const sz  = await appWindow.outerSize()
           const sc  = await appWindow.scaleFactor()
 
-          // Is cursor inside the window bounds?
-          const inWindow = cx >= pos.x && cy >= pos.y
-            && cx <= pos.x + sz.width && cy <= pos.y + sz.height
+          // Clock geometry in physical pixels
+          const clockPx = settingsRef.current.size * sc
+          const cCX     = pos.x + clockPx * 0.5
+          const cCY     = pos.y + clockPx * 0.5
+          const clockR  = clockPx * 0.45
 
-          // Bottom-right 64 px zone: wake up interaction so user can
-          // double-click / right-click to open settings
-          const zone = 64 * sc
-          const inGear = inWindow
-            && cx >= pos.x + sz.width - zone
-            && cy >= pos.y + sz.height - zone
+          // Hovering: cursor within (or just outside) the clock face circle
+          const inWindow = Math.hypot(cx - cCX, cy - cCY) <= clockR + 5 * sc
+
+          // Wake-gear zone: 20 logical px radius circle at 6-o'clock inner position
+          const gearCY = pos.y + clockPx * 0.79
+          const inGear  = Math.hypot(cx - cCX, cy - gearCY) <= 20 * sc
 
           // Single setState to avoid two-render flicker during transition
           const next = inGear ? 'wake' : inWindow ? 'hover' : 'none'
@@ -198,32 +201,6 @@ function App() {
     }
   }, [settings.clickThrough])
 
-  // Auto corner-snap
-  const trySnapCorner = useCallback(async () => {
-    if (!isTauri) return
-    const { appWindow, LogicalPosition, currentMonitor } = await import('@tauri-apps/api/window')
-    const monitor = await currentMonitor()
-    if (!monitor) return
-    const sc = monitor.scaleFactor
-    const mX = monitor.position.x / sc, mY = monitor.position.y / sc
-    const mW = monitor.size.width / sc,  mH = monitor.size.height / sc
-    const winSize = await appWindow.outerSize()
-    const wW = winSize.width / sc, wH = winSize.height / sc
-    const pos = await appWindow.outerPosition()
-    const wx = pos.x / sc, wy = pos.y / sc
-    const nearL = wx - mX < CORNER_SNAP_PX
-    const nearR = mX + mW - wx - wW < CORNER_SNAP_PX
-    const nearT = wy - mY < CORNER_SNAP_PX
-    const nearB = mY + mH - wy - wH < CORNER_SNAP_PX
-    if ((nearL || nearR) && (nearT || nearB)) {
-      const margin = settingsRef.current.snapMargin
-      await appWindow.setPosition(new LogicalPosition(
-        nearL ? mX + margin : mX + mW - wW - margin,
-        nearT ? mY + margin : mY + mH - wH - margin,
-      ))
-    }
-  }, [])
-
   // Long-press (400 ms) to start drag
   const handleMouseDown = useCallback(async (e: React.MouseEvent) => {
     if (e.button !== 0 || showSettingsRef.current || !isTauri) return
@@ -259,7 +236,6 @@ function App() {
         isDraggingRef.current = false
         window.removeEventListener('mousemove', onMove)
         window.removeEventListener('mouseup', onUp)
-        trySnapCorner()
       }
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
@@ -271,44 +247,42 @@ function App() {
       if (!dragging) clearTimeout(timer)
     }
     window.addEventListener('mouseup', onUp)
-  }, [trySnapCorner])
+  }, [])
 
   const openSettings = useCallback(async () => {
     if (isTauri) {
       const { appWindow, LogicalSize, LogicalPosition, currentMonitor } = await import('@tauri-apps/api/window')
       await appWindow.setIgnoreCursorEvents(false)
 
-      // Compute a position that keeps the settings window fully on-screen
+      const sc      = await appWindow.scaleFactor()
+      const pos     = await appWindow.outerPosition()
       const monitor = await currentMonitor()
-      const sc = await appWindow.scaleFactor()
-      const pos = await appWindow.outerPosition()
+      const s       = settingsRef.current.size
+      const totalW  = s + SETTINGS_GAP + SETTINGS_W
+      const totalH  = Math.max(s, SETTINGS_H)
+
+      // Keep clock in place; slide left only if right edge would go off-screen
       let wx = pos.x / sc
       let wy = pos.y / sc
-
       if (monitor) {
         const mX = monitor.position.x / sc
         const mY = monitor.position.y / sc
-        const mW = monitor.size.width / sc
+        const mW = monitor.size.width  / sc
         const mH = monitor.size.height / sc
-        wx = Math.min(wx, mX + mW - SETTINGS_W)
-        wy = Math.min(wy, mY + mH - SETTINGS_H)
+        wx = Math.min(wx, mX + mW - totalW)
         wx = Math.max(wx, mX)
+        wy = Math.min(wy, mY + mH - totalH)
         wy = Math.max(wy, mY)
         await appWindow.setPosition(new LogicalPosition(wx, wy))
       }
-
-      await appWindow.setSize(new LogicalSize(SETTINGS_W, SETTINGS_H))
+      await appWindow.setSize(new LogicalSize(totalW, totalH))
     }
     setShowSettings(true)
   }, [])
 
   const closeSettings = useCallback(async () => {
     setShowSettings(false)
-    if (isTauri) {
-      const s = settingsRef.current.size + 50
-      const { appWindow, LogicalSize } = await import('@tauri-apps/api/window')
-      await appWindow.setSize(new LogicalSize(s, s))
-    }
+    // Window resize is handled by the size/showSettings effect above
   }, [])
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
@@ -329,18 +303,18 @@ function App() {
   }, [])
 
   // Click-through opacity (single-state, no intermediate render):
-  //   wake zone (bottom-right corner) → 1      (fully opaque)
-  //   hovering elsewhere over window  → 0.06   (nearly invisible)
-  //   not hovering                    → settings.opacity
+  //   wake gear zone                 → 1      (fully opaque)
+  //   hovering over clock face       → 0.06   (nearly invisible)
+  //   not hovering                   → settings.opacity
   const clockOpacity = settings.clickThrough
     ? hoverState === 'wake' ? 1 : hoverState === 'hover' ? 0.06 : settings.opacity
     : settings.opacity
 
   return (
-    <>
+    <div style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
       <div
         className="app"
-        style={{ opacity: clockOpacity }}
+        style={{ width: settings.size, height: settings.size, opacity: clockOpacity }}
         onMouseDown={handleMouseDown}
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
@@ -353,17 +327,28 @@ function App() {
           targetHour={settings.targetHour}
           targetMinute={settings.targetMinute}
         />
+        {/* Wake-gear: visual marker + click target for the wake zone */}
+        <div
+          className="wake-gear"
+          onClick={openSettings}
+          onMouseDown={e => e.stopPropagation()}
+          onDoubleClick={e => e.stopPropagation()}
+          onContextMenu={e => e.stopPropagation()}
+          title="Open Settings"
+        >⚙</div>
       </div>
 
       {showSettings && (
-        <Settings
-          settings={settings}
-          onUpdate={updateSettings}
-          onClose={closeSettings}
-          onQuit={handleQuit}
-        />
+        <div style={{ marginLeft: SETTINGS_GAP, alignSelf: 'center' }}>
+          <Settings
+            settings={settings}
+            onUpdate={updateSettings}
+            onClose={closeSettings}
+            onQuit={handleQuit}
+          />
+        </div>
       )}
-    </>
+    </div>
   )
 }
 

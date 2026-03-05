@@ -31,8 +31,7 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
   const colorInputRef = useRef<HTMLInputElement>(null)
 
   return (
-    <div className="settings-overlay">
-      <div className="settings-panel">
+    <div className="settings-panel">
 
         <h2>⚙ Settings</h2>
 
@@ -131,7 +130,6 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
           <button className="btn btn-primary" onClick={onClose}>Close</button>
         </div>
 
-      </div>
     </div>
   )
 }

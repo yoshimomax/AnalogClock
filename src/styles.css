@@ -18,41 +18,58 @@ body {
 
 /* ── Clock container ── */
 .app {
-  width: 100%;
-  height: 100%;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
+  flex-shrink: 0;
   transition: opacity 0.35s ease;
 }
 
-/* ── Settings overlay ──
-   The window is resized to 310×490 when settings open, so the overlay
-   simply fills that window – no scrolling needed.                      */
-.settings-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+/* ── Wake-gear icon ──
+   Sits at the 6-o'clock inner position on the clock face.
+   Acts as a visual hint for the wake zone in click-through mode
+   and as a direct click target to open Settings.              */
+.wake-gear {
+  position: absolute;
+  left: 50%;
+  top: 79%;
+  transform: translate(-50%, -50%);
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(4px);
+  font-size: 15px;
+  color: rgba(0, 0, 0, 0.35);
+  text-shadow:
+    0 0 5px rgba(255, 255, 255, 0.8),
+    0 1px 2px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: color 0.15s, transform 0.15s;
+  pointer-events: all;
+  z-index: 10;
+}
+.wake-gear:hover {
+  color: rgba(0, 0, 0, 0.7);
+  transform: translate(-50%, -50%) scale(1.2);
 }
 
+/* ── Settings panel ──
+   Rendered beside the clock; the Tauri window expands to fit both. */
 .settings-panel {
   background: #fff;
   border-radius: 14px;
   padding: 14px 16px;
   width: 282px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
   animation: slideIn 0.18s ease-out;
 }
 
 @keyframes slideIn {
-  from { opacity: 0; transform: scale(0.96) translateY(-8px); }
-  to   { opacity: 1; transform: scale(1)    translateY(0);    }
+  from { opacity: 0; transform: scale(0.96) translateX(8px); }
+  to   { opacity: 1; transform: scale(1)    translateX(0);   }
 }
 
 .settings-panel h2 {
