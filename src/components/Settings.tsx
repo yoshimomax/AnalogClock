@@ -12,7 +12,7 @@ interface Props {
 
 type Corner = 'tl' | 'tr' | 'bl' | 'br'
 
-async function snapToCorner(corner: Corner) {
+async function snapToCorner(corner: Corner, margin: number) {
   if (!isTauri) return
   const { appWindow, LogicalPosition, currentMonitor } = await import('@tauri-apps/api/window')
   const monitor = await currentMonitor()
@@ -22,8 +22,8 @@ async function snapToCorner(corner: Corner) {
   const mW = monitor.size.width / sc, mH = monitor.size.height / sc
   const winSize = await appWindow.outerSize()
   const wW = winSize.width / sc, wH = winSize.height / sc
-  const x = (corner === 'tr' || corner === 'br') ? mX + mW - wW : mX
-  const y = (corner === 'bl' || corner === 'br') ? mY + mH - wH : mY
+  const x = (corner === 'tr' || corner === 'br') ? mX + mW - wW - margin : mX + margin
+  const y = (corner === 'bl' || corner === 'br') ? mY + mH - wH - margin : mY + margin
   await appWindow.setPosition(new LogicalPosition(x, y))
 }
 
@@ -108,12 +108,21 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
 
         {/* Corner snap */}
         {isTauri && (
-          <div className="corner-snap-grid">
-            <button className="corner-btn" onClick={() => snapToCorner('tl')} title="Top-left">↖</button>
-            <button className="corner-btn" onClick={() => snapToCorner('tr')} title="Top-right">↗</button>
-            <button className="corner-btn" onClick={() => snapToCorner('bl')} title="Bottom-left">↙</button>
-            <button className="corner-btn" onClick={() => snapToCorner('br')} title="Bottom-right">↘</button>
-          </div>
+          <>
+            <div className="slider-row">
+              <span className="slider-label">Corner margin</span>
+              <input type="range" min="0" max="100"
+                value={settings.snapMargin}
+                onChange={e => onUpdate({ snapMargin: parseInt(e.target.value) })} />
+              <span className="slider-val">{settings.snapMargin}px</span>
+            </div>
+            <div className="corner-snap-grid">
+              <button className="corner-btn" onClick={() => snapToCorner('tl', settings.snapMargin)} title="Top-left">↖</button>
+              <button className="corner-btn" onClick={() => snapToCorner('tr', settings.snapMargin)} title="Top-right">↗</button>
+              <button className="corner-btn" onClick={() => snapToCorner('bl', settings.snapMargin)} title="Bottom-left">↙</button>
+              <button className="corner-btn" onClick={() => snapToCorner('br', settings.snapMargin)} title="Bottom-right">↘</button>
+            </div>
+          </>
         )}
 
         {/* Action buttons */}

@@ -9,7 +9,7 @@ const isTauri = '__TAURI__' in window
 const LONG_PRESS_MS = 400
 const CORNER_SNAP_PX = 80
 const SETTINGS_W = 310
-const SETTINGS_H = 490
+const SETTINGS_H = 522
 const POS_KEY = 'clock-window-position'
 
 function App() {
@@ -216,9 +216,10 @@ function App() {
     const nearT = wy - mY < CORNER_SNAP_PX
     const nearB = mY + mH - wy - wH < CORNER_SNAP_PX
     if ((nearL || nearR) && (nearT || nearB)) {
+      const margin = settingsRef.current.snapMargin
       await appWindow.setPosition(new LogicalPosition(
-        nearL ? mX : mX + mW - wW,
-        nearT ? mY : mY + mH - wH,
+        nearL ? mX + margin : mX + mW - wW - margin,
+        nearT ? mY + margin : mY + mH - wH - margin,
       ))
     }
   }, [])

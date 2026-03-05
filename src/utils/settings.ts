@@ -8,6 +8,7 @@ export interface Settings {
   alwaysOnTop: boolean
   showSeconds: boolean
   clickThrough: boolean
+  snapMargin: number
 }
 
 export const defaultSettings: Settings = {
@@ -20,6 +21,7 @@ export const defaultSettings: Settings = {
   alwaysOnTop: true,
   showSeconds: true,
   clickThrough: false,
+  snapMargin: 0,
 }
 
 export const PRESET_COLORS = [
