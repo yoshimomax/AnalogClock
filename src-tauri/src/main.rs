@@ -23,9 +23,12 @@ fn get_cursor_pos() -> (i32, i32) {
 }
 
 fn build_tray() -> SystemTray {
+    let settings  = CustomMenuItem::new("settings",  "設定を開く");
     let show_hide = CustomMenuItem::new("show_hide", "表示 / 非表示");
     let quit      = CustomMenuItem::new("quit",      "終了");
     let menu = SystemTrayMenu::new()
+        .add_item(settings)
+        .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(show_hide)
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(quit);
@@ -50,6 +53,13 @@ fn main() {
             // Left-click: toggle window visibility
             SystemTrayEvent::LeftClick { .. } => toggle_window(app),
             SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
+                "settings" => {
+                    if let Some(win) = app.get_window("main") {
+                        let _ = win.show();
+                        let _ = win.set_focus();
+                        let _ = win.emit("tray-open-settings", ());
+                    }
+                }
                 "show_hide" => toggle_window(app),
                 "quit"      => std::process::exit(0),
                 _           => {}

@@ -23,6 +23,7 @@ function App() {
   const settingsRef = useRef(settings)
   settingsRef.current = settings
   const hoverStateRef = useRef<'none' | 'hover' | 'wake'>('none')
+  const isDraggingRef = useRef(false)
 
   useEffect(() => { loadSettings().then(setSettings) }, [])
 
@@ -86,6 +87,16 @@ function App() {
       appWindow.setSize(new LogicalSize(s, s))
     })
   }, [settings.size, showSettings])
+
+  // Open settings when triggered from the system tray menu
+  useEffect(() => {
+    if (!isTauri) return
+    let unlisten: (() => void) | null = null
+    import('@tauri-apps/api/event').then(({ listen }) => {
+      listen('tray-open-settings', () => { openSettings() }).then(fn => { unlisten = fn })
+    })
+    return () => { unlisten?.() }
+  }, [openSettings])
 
   // Click-through mode with cursor polling.
   // When enabled:
@@ -154,16 +165,21 @@ function App() {
             setHoverState(next)
           }
 
-          if (inGear && !interactive) {
+          if (inGear) {
+            // Wake zone: always cancel pending passthrough timer and go interactive
             if (inactiveTimer) { clearTimeout(inactiveTimer); inactiveTimer = null }
-            await setPassthrough(false)
-          } else if (!inGear && interactive && !showSettingsRef.current) {
+            if (!interactive) await setPassthrough(false)
+          } else if (interactive && !showSettingsRef.current && !isDraggingRef.current) {
+            // Outside wake zone: schedule passthrough after inactivity
             if (!inactiveTimer) {
               inactiveTimer = window.setTimeout(async () => {
                 inactiveTimer = null
-                if (!showSettingsRef.current) await setPassthrough(true)
+                if (!showSettingsRef.current && !isDraggingRef.current) await setPassthrough(true)
               }, 1500)
             }
+          } else if (isDraggingRef.current) {
+            // Dragging: keep interactive, cancel any pending passthrough timer
+            if (inactiveTimer) { clearTimeout(inactiveTimer); inactiveTimer = null }
           }
         } catch { /* ignore */ }
       }
@@ -211,15 +227,24 @@ function App() {
   const handleMouseDown = useCallback(async (e: React.MouseEvent) => {
     if (e.button !== 0 || showSettingsRef.current || !isTauri) return
     const startX = e.screenX, startY = e.screenY
-    let dragging = false, pending = false
+
+    // Guard against early mouse release during async setup
+    let released = false
+    const earlyUp = () => { released = true }
+    window.addEventListener('mouseup', earlyUp, { once: true })
 
     const { appWindow, LogicalPosition } = await import('@tauri-apps/api/window')
     const scale = await appWindow.scaleFactor()
     const initPos = await appWindow.outerPosition()
     const initWX = initPos.x / scale, initWY = initPos.y / scale
 
+    if (released) return  // button was released before async setup finished
+
+    let dragging = false, pending = false
+
     const startDrag = () => {
       dragging = true
+      isDraggingRef.current = true
       const onMove = async (ev: MouseEvent) => {
         if (pending) return
         pending = true
@@ -230,6 +255,7 @@ function App() {
         pending = false
       }
       const onUp = () => {
+        isDraggingRef.current = false
         window.removeEventListener('mousemove', onMove)
         window.removeEventListener('mouseup', onUp)
         trySnapCorner()
