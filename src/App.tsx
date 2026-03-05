@@ -257,8 +257,28 @@ function App() {
 
   const openSettings = useCallback(async () => {
     if (isTauri) {
-      const { appWindow, LogicalSize } = await import('@tauri-apps/api/window')
+      const { appWindow, LogicalSize, LogicalPosition, currentMonitor } = await import('@tauri-apps/api/window')
       await appWindow.setIgnoreCursorEvents(false)
+
+      // Compute a position that keeps the settings window fully on-screen
+      const monitor = await currentMonitor()
+      const sc = await appWindow.scaleFactor()
+      const pos = await appWindow.outerPosition()
+      let wx = pos.x / sc
+      let wy = pos.y / sc
+
+      if (monitor) {
+        const mX = monitor.position.x / sc
+        const mY = monitor.position.y / sc
+        const mW = monitor.size.width / sc
+        const mH = monitor.size.height / sc
+        wx = Math.min(wx, mX + mW - SETTINGS_W)
+        wy = Math.min(wy, mY + mH - SETTINGS_H)
+        wx = Math.max(wx, mX)
+        wy = Math.max(wy, mY)
+        await appWindow.setPosition(new LogicalPosition(wx, wy))
+      }
+
       await appWindow.setSize(new LogicalSize(SETTINGS_W, SETTINGS_H))
     }
     setShowSettings(true)
@@ -295,7 +315,7 @@ function App() {
   //   hovering elsewhere over window  → 0.06   (nearly invisible)
   //   not hovering                    → settings.opacity
   const clockOpacity = settings.clickThrough
-    ? inWakeZone ? 0 : hovering ? 0.06 : settings.opacity
+    ? inWakeZone ? 1 : hovering ? 0.06 : settings.opacity
     : settings.opacity
 
   return (
