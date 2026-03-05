@@ -6,25 +6,60 @@ import { Settings as SettingsType, defaultSettings, loadSettings, saveSettings }
 
 const isTauri = '__TAURI__' in window
 
-// How long (ms) to hold before drag starts instead of a regular click
 const LONG_PRESS_MS = 400
-// Distance (logical px) from screen edge to trigger auto corner-snap
 const CORNER_SNAP_PX = 80
-// Settings window size
 const SETTINGS_W = 310
 const SETTINGS_H = 490
+const POS_KEY = 'clock-window-position'
 
 function App() {
   const [settings, setSettings] = useState<SettingsType>(defaultSettings)
   const [showSettings, setShowSettings] = useState(false)
+  const [hovering, setHovering] = useState(false)
 
-  // Refs so event callbacks always see latest values without re-subscription
   const showSettingsRef = useRef(showSettings)
   showSettingsRef.current = showSettings
   const settingsRef = useRef(settings)
   settingsRef.current = settings
+  const hoveringRef = useRef(false)
 
   useEffect(() => { loadSettings().then(setSettings) }, [])
+
+  // Restore last window position on startup
+  useEffect(() => {
+    if (!isTauri) return
+    const saved = localStorage.getItem(POS_KEY)
+    if (!saved) return
+    try {
+      const { x, y } = JSON.parse(saved)
+      import('@tauri-apps/api/window').then(({ appWindow, LogicalPosition }) => {
+        appWindow.setPosition(new LogicalPosition(x, y))
+      })
+    } catch { /* ignore malformed data */ }
+  }, [])
+
+  // Save window position whenever it moves (debounced)
+  useEffect(() => {
+    if (!isTauri) return
+    let unlisten: (() => void) | null = null
+    let timer: number | null = null
+
+    import('@tauri-apps/api/window').then(async ({ appWindow }) => {
+      unlisten = await appWindow.listen('tauri://move', async () => {
+        if (timer) clearTimeout(timer)
+        timer = window.setTimeout(async () => {
+          const pos = await appWindow.outerPosition()
+          const sc = await appWindow.scaleFactor()
+          localStorage.setItem(POS_KEY, JSON.stringify({ x: pos.x / sc, y: pos.y / sc }))
+        }, 500)
+      })
+    })
+
+    return () => {
+      if (unlisten) unlisten()
+      if (timer) clearTimeout(timer)
+    }
+  }, [])
 
   const updateSettings = useCallback((patch: Partial<SettingsType>) => {
     setSettings(prev => {
@@ -34,7 +69,7 @@ function App() {
     })
   }, [])
 
-  // --- Window property sync ---
+  // Sync alwaysOnTop
   useEffect(() => {
     if (!isTauri) return
     import('@tauri-apps/api/window').then(({ appWindow }) => {
@@ -42,7 +77,7 @@ function App() {
     })
   }, [settings.alwaysOnTop])
 
-  // Resize window to fit clock whenever size changes (skip while settings is open)
+  // Resize window when clock size changes (skip while settings panel is open)
   useEffect(() => {
     if (!isTauri || showSettings) return
     const s = settings.size + 50
@@ -51,16 +86,25 @@ function App() {
     })
   }, [settings.size, showSettings])
 
-  // --- Click-through mode ---
-  // When enabled, cursor events are ignored (OS-level passthrough).
-  // A polling loop watches the cursor position; when it enters the gear-button
-  // zone (bottom-right 64×64 px of the window), interaction is briefly restored
-  // so the user can double-click or right-click to open settings.
+  // Click-through mode with cursor polling.
+  // When enabled:
+  //   - setIgnoreCursorEvents(true) → OS-level passthrough
+  //   - cursor over window         → clock fades to nearly invisible
+  //   - cursor in bottom-right zone (gear area) → interaction briefly restored
   useEffect(() => {
     if (!isTauri) return
 
+    if (!settings.clickThrough) {
+      // Ensure passthrough is off when feature is disabled
+      import('@tauri-apps/api/window').then(({ appWindow }) => {
+        appWindow.setIgnoreCursorEvents(false)
+      })
+      if (hoveringRef.current) { hoveringRef.current = false; setHovering(false) }
+      return
+    }
+
     let active = true
-    let interactive = true          // current state
+    let interactive = true
     let inactiveTimer: number | null = null
 
     const setPassthrough = async (pass: boolean) => {
@@ -72,18 +116,16 @@ function App() {
     }
 
     const poll = async () => {
+      await setPassthrough(true)
+
       while (active) {
         await new Promise(r => setTimeout(r, 150))
         if (!active) break
 
-        // Always keep interactive while settings panel is open
+        // Settings open → keep interactive, no hover fade
         if (showSettingsRef.current) {
           if (!interactive) await setPassthrough(false)
-          continue
-        }
-
-        if (!settingsRef.current.clickThrough) {
-          if (!interactive) await setPassthrough(false)
+          if (hoveringRef.current) { hoveringRef.current = false; setHovering(false) }
           continue
         }
 
@@ -91,26 +133,34 @@ function App() {
           const { appWindow } = await import('@tauri-apps/api/window')
           const [cx, cy] = await invoke<[number, number]>('get_cursor_pos')
           const pos = await appWindow.outerPosition()
-          const size = await appWindow.outerSize()
-          const scale = await appWindow.scaleFactor()
+          const sz  = await appWindow.outerSize()
+          const sc  = await appWindow.scaleFactor()
 
-          // Gear-button zone: bottom-right 64×64 px (logical) of the window
-          const zoneSize = 64 * scale
-          const inZone = cx >= pos.x + size.width - zoneSize
-            && cy >= pos.y + size.height - zoneSize
-            && cx <= pos.x + size.width
-            && cy <= pos.y + size.height
+          // Is cursor inside the window bounds?
+          const inWindow = cx >= pos.x && cy >= pos.y
+            && cx <= pos.x + sz.width && cy <= pos.y + sz.height
 
-          if (inZone && !interactive) {
+          // Update hover state for opacity fade
+          if (inWindow !== hoveringRef.current) {
+            hoveringRef.current = inWindow
+            setHovering(inWindow)
+          }
+
+          // Bottom-right 64 px zone: wake up interaction so user can
+          // double-click / right-click to open settings
+          const zone = 64 * sc
+          const inGear = inWindow
+            && cx >= pos.x + sz.width - zone
+            && cy >= pos.y + sz.height - zone
+
+          if (inGear && !interactive) {
             if (inactiveTimer) { clearTimeout(inactiveTimer); inactiveTimer = null }
             await setPassthrough(false)
-          } else if (!inZone && interactive) {
+          } else if (!inGear && interactive && !showSettingsRef.current) {
             if (!inactiveTimer) {
               inactiveTimer = window.setTimeout(async () => {
                 inactiveTimer = null
-                if (settingsRef.current.clickThrough && !showSettingsRef.current) {
-                  await setPassthrough(true)
-                }
+                if (!showSettingsRef.current) await setPassthrough(true)
               }, 1500)
             }
           }
@@ -118,24 +168,20 @@ function App() {
       }
     }
 
-    // Kick off: start passthrough if enabled, then begin polling
-    const start = async () => {
-      if (settingsRef.current.clickThrough) await setPassthrough(true)
-      poll()
-    }
-    start()
+    poll()
 
     return () => {
       active = false
       if (inactiveTimer) clearTimeout(inactiveTimer)
-      // Ensure passthrough is off when effect unmounts
+      hoveringRef.current = false
+      setHovering(false)
       import('@tauri-apps/api/window').then(({ appWindow }) => {
         appWindow.setIgnoreCursorEvents(false)
       }).catch(() => {})
     }
   }, [settings.clickThrough])
 
-  // --- Auto corner-snap ---
+  // Auto corner-snap
   const trySnapCorner = useCallback(async () => {
     if (!isTauri) return
     const { appWindow, LogicalPosition, currentMonitor } = await import('@tauri-apps/api/window')
@@ -143,7 +189,7 @@ function App() {
     if (!monitor) return
     const sc = monitor.scaleFactor
     const mX = monitor.position.x / sc, mY = monitor.position.y / sc
-    const mW = monitor.size.width / sc, mH = monitor.size.height / sc
+    const mW = monitor.size.width / sc,  mH = monitor.size.height / sc
     const winSize = await appWindow.outerSize()
     const wW = winSize.width / sc, wH = winSize.height / sc
     const pos = await appWindow.outerPosition()
@@ -160,10 +206,9 @@ function App() {
     }
   }, [])
 
-  // --- Drag: long-press (400 ms hold) to start ---
+  // Long-press (400 ms) to start drag
   const handleMouseDown = useCallback(async (e: React.MouseEvent) => {
     if (e.button !== 0 || showSettingsRef.current || !isTauri) return
-
     const startX = e.screenX, startY = e.screenY
     let dragging = false, pending = false
 
@@ -200,11 +245,10 @@ function App() {
     window.addEventListener('mouseup', onUp)
   }, [trySnapCorner])
 
-  // --- Open / close settings (resize window) ---
   const openSettings = useCallback(async () => {
     if (isTauri) {
       const { appWindow, LogicalSize } = await import('@tauri-apps/api/window')
-      await appWindow.setIgnoreCursorEvents(false)       // disable passthrough
+      await appWindow.setIgnoreCursorEvents(false)
       await appWindow.setSize(new LogicalSize(SETTINGS_W, SETTINGS_H))
     }
     setShowSettings(true)
@@ -236,13 +280,14 @@ function App() {
     }
   }, [])
 
+  // Fade to nearly invisible when hovering in click-through mode
+  const clockOpacity = settings.clickThrough && hovering ? 0.06 : settings.opacity
+
   return (
     <>
-      {/* Clock rendered at configured opacity; settings overlay is outside this div
-          so it's always fully opaque regardless of the clock opacity setting. */}
       <div
         className="app"
-        style={{ opacity: settings.opacity }}
+        style={{ opacity: clockOpacity }}
         onMouseDown={handleMouseDown}
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
@@ -256,19 +301,6 @@ function App() {
           targetMinute={settings.targetMinute}
         />
       </div>
-
-      {/* Gear button: always full-opacity, fixed to bottom-right corner.
-          In click-through mode this corner acts as the "wake zone" —
-          hovering here temporarily restores mouse interaction. */}
-      {!showSettings && (
-        <button
-          className="gear-btn"
-          onClick={openSettings}
-          title="Settings (or double-click / right-click the clock)"
-        >
-          ⚙
-        </button>
-      )}
 
       {showSettings && (
         <Settings

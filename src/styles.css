@@ -24,34 +24,7 @@ body {
   align-items: center;
   justify-content: center;
   background: transparent;
-}
-
-/* ── Gear indicator button ──
-   Always rendered at full opacity (outside the clock opacity div).
-   Positioned in the bottom-right transparent corner of the window –
-   the corner that also serves as the click-through "wake zone".    */
-.gear-btn {
-  position: fixed;
-  right: 6px;
-  bottom: 6px;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.25);
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s;
-  z-index: 500;
-  line-height: 1;
-}
-
-.gear-btn:hover {
-  background: rgba(0, 0, 0, 0.55);
+  transition: opacity 0.35s ease;
 }
 
 /* ── Settings overlay ──
