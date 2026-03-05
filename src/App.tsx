@@ -90,6 +90,37 @@ function App() {
     })
   }, [settings.size, showSettings])
 
+  const openSettings = useCallback(async () => {
+    if (isTauri) {
+      const { appWindow, LogicalSize, LogicalPosition, currentMonitor } = await import('@tauri-apps/api/window')
+      await appWindow.setIgnoreCursorEvents(false)
+
+      const sc      = await appWindow.scaleFactor()
+      const pos     = await appWindow.outerPosition()
+      const monitor = await currentMonitor()
+      const s       = settingsRef.current.size
+      const totalW  = s + SETTINGS_GAP + SETTINGS_W
+      const totalH  = Math.max(s, SETTINGS_H)
+
+      // Keep clock in place; slide left only if right edge would go off-screen
+      let wx = pos.x / sc
+      let wy = pos.y / sc
+      if (monitor) {
+        const mX = monitor.position.x / sc
+        const mY = monitor.position.y / sc
+        const mW = monitor.size.width  / sc
+        const mH = monitor.size.height / sc
+        wx = Math.min(wx, mX + mW - totalW)
+        wx = Math.max(wx, mX)
+        wy = Math.min(wy, mY + mH - totalH)
+        wy = Math.max(wy, mY)
+        await appWindow.setPosition(new LogicalPosition(wx, wy))
+      }
+      await appWindow.setSize(new LogicalSize(totalW, totalH))
+    }
+    setShowSettings(true)
+  }, [])
+
   // Open settings when triggered from the system tray menu
   useEffect(() => {
     if (!isTauri) return
@@ -247,37 +278,6 @@ function App() {
       if (!dragging) clearTimeout(timer)
     }
     window.addEventListener('mouseup', onUp)
-  }, [])
-
-  const openSettings = useCallback(async () => {
-    if (isTauri) {
-      const { appWindow, LogicalSize, LogicalPosition, currentMonitor } = await import('@tauri-apps/api/window')
-      await appWindow.setIgnoreCursorEvents(false)
-
-      const sc      = await appWindow.scaleFactor()
-      const pos     = await appWindow.outerPosition()
-      const monitor = await currentMonitor()
-      const s       = settingsRef.current.size
-      const totalW  = s + SETTINGS_GAP + SETTINGS_W
-      const totalH  = Math.max(s, SETTINGS_H)
-
-      // Keep clock in place; slide left only if right edge would go off-screen
-      let wx = pos.x / sc
-      let wy = pos.y / sc
-      if (monitor) {
-        const mX = monitor.position.x / sc
-        const mY = monitor.position.y / sc
-        const mW = monitor.size.width  / sc
-        const mH = monitor.size.height / sc
-        wx = Math.min(wx, mX + mW - totalW)
-        wx = Math.max(wx, mX)
-        wy = Math.min(wy, mY + mH - totalH)
-        wy = Math.max(wy, mY)
-        await appWindow.setPosition(new LogicalPosition(wx, wy))
-      }
-      await appWindow.setSize(new LogicalSize(totalW, totalH))
-    }
-    setShowSettings(true)
   }, [])
 
   const closeSettings = useCallback(async () => {
