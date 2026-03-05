@@ -15,15 +15,14 @@ const POS_KEY = 'clock-window-position'
 function App() {
   const [settings, setSettings] = useState<SettingsType>(defaultSettings)
   const [showSettings, setShowSettings] = useState(false)
-  const [hovering, setHovering] = useState(false)
-  const [inWakeZone, setInWakeZone] = useState(false)
+  // Single state avoids the two-render gap that caused the opacity flicker
+  const [hoverState, setHoverState] = useState<'none' | 'hover' | 'wake'>('none')
 
   const showSettingsRef = useRef(showSettings)
   showSettingsRef.current = showSettings
   const settingsRef = useRef(settings)
   settingsRef.current = settings
-  const hoveringRef = useRef(false)
-  const inWakeZoneRef = useRef(false)
+  const hoverStateRef = useRef<'none' | 'hover' | 'wake'>('none')
 
   useEffect(() => { loadSettings().then(setSettings) }, [])
 
@@ -97,11 +96,10 @@ function App() {
     if (!isTauri) return
 
     if (!settings.clickThrough) {
-      // Ensure passthrough is off when feature is disabled
       import('@tauri-apps/api/window').then(({ appWindow }) => {
         appWindow.setIgnoreCursorEvents(false)
       })
-      if (hoveringRef.current) { hoveringRef.current = false; setHovering(false) }
+      if (hoverStateRef.current !== 'none') { hoverStateRef.current = 'none'; setHoverState('none') }
       return
     }
 
@@ -127,7 +125,7 @@ function App() {
         // Settings open → keep interactive, no hover fade
         if (showSettingsRef.current) {
           if (!interactive) await setPassthrough(false)
-          if (hoveringRef.current) { hoveringRef.current = false; setHovering(false) }
+          if (hoverStateRef.current !== 'none') { hoverStateRef.current = 'none'; setHoverState('none') }
           continue
         }
 
@@ -149,16 +147,11 @@ function App() {
             && cx >= pos.x + sz.width - zone
             && cy >= pos.y + sz.height - zone
 
-          // hovering (fade): in window but outside wake zone → 0.06
-          const shouldFade = inWindow && !inGear
-          if (shouldFade !== hoveringRef.current) {
-            hoveringRef.current = shouldFade
-            setHovering(shouldFade)
-          }
-          // inWakeZone: fully transparent (opacity 0)
-          if (inGear !== inWakeZoneRef.current) {
-            inWakeZoneRef.current = inGear
-            setInWakeZone(inGear)
+          // Single setState to avoid two-render flicker during transition
+          const next = inGear ? 'wake' : inWindow ? 'hover' : 'none'
+          if (next !== hoverStateRef.current) {
+            hoverStateRef.current = next
+            setHoverState(next)
           }
 
           if (inGear && !interactive) {
@@ -181,10 +174,8 @@ function App() {
     return () => {
       active = false
       if (inactiveTimer) clearTimeout(inactiveTimer)
-      hoveringRef.current = false
-      setHovering(false)
-      inWakeZoneRef.current = false
-      setInWakeZone(false)
+      hoverStateRef.current = 'none'
+      setHoverState('none')
       import('@tauri-apps/api/window').then(({ appWindow }) => {
         appWindow.setIgnoreCursorEvents(false)
       }).catch(() => {})
@@ -310,12 +301,12 @@ function App() {
     }
   }, [])
 
-  // Click-through opacity:
-  //   wake zone (bottom-right corner) → 0      (fully invisible)
+  // Click-through opacity (single-state, no intermediate render):
+  //   wake zone (bottom-right corner) → 1      (fully opaque)
   //   hovering elsewhere over window  → 0.06   (nearly invisible)
   //   not hovering                    → settings.opacity
   const clockOpacity = settings.clickThrough
-    ? inWakeZone ? 1 : hovering ? 0.06 : settings.opacity
+    ? hoverState === 'wake' ? 1 : hoverState === 'hover' ? 0.06 : settings.opacity
     : settings.opacity
 
   return (
