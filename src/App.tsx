@@ -253,8 +253,11 @@ function App() {
 
   // Immediate drag: click+drag anywhere on clock face moves the window.
   // If mouse is released without dragging and the click was on the gear icon, open settings.
+  // In click-through mode, dragging is only allowed from the gear zone (hoverState === 'wake').
   const handleMouseDown = useCallback(async (e: React.MouseEvent) => {
     if (e.button !== 0 || !isTauri) return
+    // Click-through mode: outside gear zone means clicks should fall through — don't start drag
+    if (settingsRef.current.clickThrough && hoverStateRef.current !== 'wake') return
     const startX = e.screenX, startY = e.screenY
     const isGear = (e.target as Element).closest('.wake-gear') !== null
 
