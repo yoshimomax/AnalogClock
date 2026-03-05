@@ -55,9 +55,9 @@ export default function Clock({
   // Date display: midpoint between center and 3 o'clock position
   const dateX = center + radius * 0.5
   const dateY = center
-  const dateW = Math.max(32, radius * 0.38)
-  const dateH = Math.max(14, radius * 0.2)
   const dateFontSize = Math.max(9, size * 0.048)
+  const dateW = Math.max(18, dateFontSize * 1.8)   // fits "31" + minimal padding
+  const dateH = Math.max(12, dateFontSize * 1.35)  // tight line-height
   const today = new Date()
   const dateStr = `${today.getDate()}`
 
