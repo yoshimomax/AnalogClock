@@ -140,18 +140,20 @@ function App() {
           const inWindow = cx >= pos.x && cy >= pos.y
             && cx <= pos.x + sz.width && cy <= pos.y + sz.height
 
-          // Update hover state for opacity fade
-          if (inWindow !== hoveringRef.current) {
-            hoveringRef.current = inWindow
-            setHovering(inWindow)
-          }
-
           // Bottom-right 64 px zone: wake up interaction so user can
           // double-click / right-click to open settings
           const zone = 64 * sc
           const inGear = inWindow
             && cx >= pos.x + sz.width - zone
             && cy >= pos.y + sz.height - zone
+
+          // Fade only when hovering outside the wake zone;
+          // entering the wake zone cancels transparency
+          const shouldFade = inWindow && !inGear
+          if (shouldFade !== hoveringRef.current) {
+            hoveringRef.current = shouldFade
+            setHovering(shouldFade)
+          }
 
           if (inGear && !interactive) {
             if (inactiveTimer) { clearTimeout(inactiveTimer); inactiveTimer = null }
