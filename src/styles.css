@@ -56,8 +56,17 @@ body {
   transform: translate(-50%, -50%) scale(1.2);
 }
 
-/* ── Settings panel ──
-   Rendered beside the clock; the Tauri window expands to fit both. */
+/* ── Settings standalone container (independent OS window) ── */
+.settings-standalone {
+  display: flex;
+  justify-content: center;
+  padding: 14px;
+  background: #f2f2f2;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/* ── Settings panel ── */
 .settings-panel {
   background: #fff;
   border-radius: 14px;

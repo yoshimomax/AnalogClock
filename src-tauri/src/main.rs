@@ -5,6 +5,12 @@ use tauri::{
     CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem,
 };
 
+/// Quit the entire application immediately.
+#[tauri::command]
+fn quit_app() {
+    std::process::exit(0);
+}
+
 /// Return the current screen cursor position in physical pixels.
 /// Used by the frontend to detect hover over the window in click-through mode.
 #[tauri::command]
@@ -67,7 +73,7 @@ fn main() {
             _ => {}
         })
         .plugin(tauri_plugin_store::Builder::default().build())
-        .invoke_handler(tauri::generate_handler![get_cursor_pos])
+        .invoke_handler(tauri::generate_handler![get_cursor_pos, quit_app])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

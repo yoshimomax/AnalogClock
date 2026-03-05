@@ -1,31 +1,59 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
 import Clock from './components/Clock'
-import Settings from './components/Settings'
-import { Settings as SettingsType, defaultSettings, loadSettings, saveSettings } from './utils/settings'
+import { Settings as SettingsType, defaultSettings, loadSettings } from './utils/settings'
 
 const isTauri = '__TAURI__' in window
 
 const LONG_PRESS_MS = 400
 const SETTINGS_W    = 310
 const SETTINGS_H    = 522
-const SETTINGS_GAP  = 12   // transparent gap between clock and settings panel
 const POS_KEY = 'clock-window-position'
 
 function App() {
   const [settings, setSettings] = useState<SettingsType>(defaultSettings)
-  const [showSettings, setShowSettings] = useState(false)
-  // Single state avoids the two-render gap that caused the opacity flicker
   const [hoverState, setHoverState] = useState<'none' | 'hover' | 'wake'>('none')
 
-  const showSettingsRef = useRef(showSettings)
-  showSettingsRef.current = showSettings
-  const settingsRef = useRef(settings)
-  settingsRef.current = settings
-  const hoverStateRef = useRef<'none' | 'hover' | 'wake'>('none')
-  const isDraggingRef = useRef(false)
+  const settingsRef     = useRef(settings)
+  settingsRef.current   = settings
+  const hoverStateRef   = useRef<'none' | 'hover' | 'wake'>('none')
+  const isDraggingRef   = useRef(false)
+  const settingsOpenRef = useRef(false)  // true while the settings window exists
 
   useEffect(() => { loadSettings().then(setSettings) }, [])
+
+  // Receive live settings updates from the settings window
+  useEffect(() => {
+    if (!isTauri) return
+    let unlisten: (() => void) | null = null
+    import('@tauri-apps/api/event').then(({ listen }) => {
+      listen<SettingsType>('settings-update', e => setSettings(e.payload))
+        .then(fn => { unlisten = fn })
+    })
+    return () => { unlisten?.() }
+  }, [])
+
+  // Snap the clock to a corner when the settings window requests it
+  useEffect(() => {
+    if (!isTauri) return
+    let unlisten: (() => void) | null = null
+    import('@tauri-apps/api/event').then(({ listen }) => {
+      listen<{ corner: string; margin: number }>('snap-to-corner', async e => {
+        const { corner, margin } = e.payload
+        const { appWindow, LogicalPosition, currentMonitor } = await import('@tauri-apps/api/window')
+        const monitor = await currentMonitor()
+        if (!monitor) return
+        const sc = monitor.scaleFactor
+        const mX = monitor.position.x / sc, mY = monitor.position.y / sc
+        const mW = monitor.size.width  / sc, mH = monitor.size.height / sc
+        const s  = settingsRef.current.size
+        const x  = (corner === 'tr' || corner === 'br') ? mX + mW - s - margin : mX + margin
+        const y  = (corner === 'bl' || corner === 'br') ? mY + mH - s - margin : mY + margin
+        await appWindow.setPosition(new LogicalPosition(x, y))
+      }).then(fn => { unlisten = fn })
+    })
+    return () => { unlisten?.() }
+  }, [])
 
   // Restore last window position on startup
   useEffect(() => {
@@ -45,30 +73,20 @@ function App() {
     if (!isTauri) return
     let unlisten: (() => void) | null = null
     let timer: number | null = null
-
     import('@tauri-apps/api/window').then(async ({ appWindow }) => {
       unlisten = await appWindow.listen('tauri://move', async () => {
         if (timer) clearTimeout(timer)
         timer = window.setTimeout(async () => {
           const pos = await appWindow.outerPosition()
-          const sc = await appWindow.scaleFactor()
+          const sc  = await appWindow.scaleFactor()
           localStorage.setItem(POS_KEY, JSON.stringify({ x: pos.x / sc, y: pos.y / sc }))
         }, 500)
       })
     })
-
     return () => {
       if (unlisten) unlisten()
       if (timer) clearTimeout(timer)
     }
-  }, [])
-
-  const updateSettings = useCallback((patch: Partial<SettingsType>) => {
-    setSettings(prev => {
-      const updated = { ...prev, ...patch }
-      saveSettings(updated)
-      return updated
-    })
   }, [])
 
   // Sync alwaysOnTop
@@ -79,46 +97,61 @@ function App() {
     })
   }, [settings.alwaysOnTop])
 
-  // Resize window whenever clock size or settings-open state changes
+  // Resize clock window when size changes
   useEffect(() => {
     if (!isTauri) return
     const s = settings.size
-    const w = showSettings ? s + SETTINGS_GAP + SETTINGS_W : s
-    const h = showSettings ? Math.max(s, SETTINGS_H) : s
     import('@tauri-apps/api/window').then(({ appWindow, LogicalSize }) => {
-      appWindow.setSize(new LogicalSize(w, h))
+      appWindow.setSize(new LogicalSize(s, s))
     })
-  }, [settings.size, showSettings])
+  }, [settings.size])
 
+  // Open settings as an independent OS window positioned beside the clock
   const openSettings = useCallback(async () => {
-    if (isTauri) {
-      const { appWindow, LogicalSize, LogicalPosition, currentMonitor } = await import('@tauri-apps/api/window')
-      await appWindow.setIgnoreCursorEvents(false)
+    if (!isTauri) return
+    const { WebviewWindow, appWindow, currentMonitor } = await import('@tauri-apps/api/window')
 
-      const sc      = await appWindow.scaleFactor()
-      const pos     = await appWindow.outerPosition()
-      const monitor = await currentMonitor()
-      const s       = settingsRef.current.size
-      const totalW  = s + SETTINGS_GAP + SETTINGS_W
-      const totalH  = Math.max(s, SETTINGS_H)
-
-      // Keep clock in place; slide left only if right edge would go off-screen
-      let wx = pos.x / sc
-      let wy = pos.y / sc
-      if (monitor) {
-        const mX = monitor.position.x / sc
-        const mY = monitor.position.y / sc
-        const mW = monitor.size.width  / sc
-        const mH = monitor.size.height / sc
-        wx = Math.min(wx, mX + mW - totalW)
-        wx = Math.max(wx, mX)
-        wy = Math.min(wy, mY + mH - totalH)
-        wy = Math.max(wy, mY)
-        await appWindow.setPosition(new LogicalPosition(wx, wy))
-      }
-      await appWindow.setSize(new LogicalSize(totalW, totalH))
+    // If the settings window is already open, just focus it
+    const existing = WebviewWindow.getByLabel('settings-panel')
+    if (existing) {
+      await existing.show()
+      await existing.setFocus()
+      return
     }
-    setShowSettings(true)
+
+    // Position to the right of the clock; clamp to monitor bounds
+    const sc      = await appWindow.scaleFactor()
+    const pos     = await appWindow.outerPosition()
+    const monitor = await currentMonitor()
+    const s       = settingsRef.current.size
+    let x = pos.x / sc + s + 12
+    let y = pos.y / sc
+    if (monitor) {
+      const mX = monitor.position.x / sc, mY = monitor.position.y / sc
+      const mW = monitor.size.width  / sc, mH = monitor.size.height / sc
+      x = Math.min(x, mX + mW - SETTINGS_W)
+      x = Math.max(x, mX)
+      y = Math.min(y, mY + mH - SETTINGS_H)
+      y = Math.max(y, mY)
+    }
+
+    const url = window.location.href.split('?')[0] + '?view=settings'
+    const win = new WebviewWindow('settings-panel', {
+      url,
+      title: 'Clock Settings',
+      width: SETTINGS_W,
+      height: SETTINGS_H,
+      resizable: false,
+      decorations: true,
+      transparent: false,
+      alwaysOnTop: true,
+      x,
+      y,
+    })
+    settingsOpenRef.current = true
+    win.listen('tauri://destroyed', () => {
+      settingsOpenRef.current = false
+    }).catch(() => {})
   }, [])
 
   // Open settings when triggered from the system tray menu
@@ -131,11 +164,7 @@ function App() {
     return () => { unlisten?.() }
   }, [openSettings])
 
-  // Click-through mode with cursor polling.
-  // When enabled:
-  //   - setIgnoreCursorEvents(true) → OS-level passthrough
-  //   - cursor over clock face      → clock fades to nearly invisible
-  //   - cursor over wake-gear icon  → interaction restored so user can open settings
+  // Click-through mode with cursor polling
   useEffect(() => {
     if (!isTauri) return
 
@@ -166,8 +195,7 @@ function App() {
         await new Promise(r => setTimeout(r, 150))
         if (!active) break
 
-        // Settings open → keep interactive, no hover fade
-        if (showSettingsRef.current) {
+        if (settingsOpenRef.current) {
           if (!interactive) await setPassthrough(false)
           if (hoverStateRef.current !== 'none') { hoverStateRef.current = 'none'; setHoverState('none') }
           continue
@@ -179,20 +207,15 @@ function App() {
           const pos = await appWindow.outerPosition()
           const sc  = await appWindow.scaleFactor()
 
-          // Clock geometry in physical pixels
           const clockPx = settingsRef.current.size * sc
           const cCX     = pos.x + clockPx * 0.5
           const cCY     = pos.y + clockPx * 0.5
           const clockR  = clockPx * 0.45
 
-          // Hovering: cursor within (or just outside) the clock face circle
           const inWindow = Math.hypot(cx - cCX, cy - cCY) <= clockR + 5 * sc
+          const gearCY   = pos.y + clockPx * 0.79
+          const inGear   = Math.hypot(cx - cCX, cy - gearCY) <= 20 * sc
 
-          // Wake-gear zone: 20 logical px radius circle at 6-o'clock inner position
-          const gearCY = pos.y + clockPx * 0.79
-          const inGear  = Math.hypot(cx - cCX, cy - gearCY) <= 20 * sc
-
-          // Single setState to avoid two-render flicker during transition
           const next = inGear ? 'wake' : inWindow ? 'hover' : 'none'
           if (next !== hoverStateRef.current) {
             hoverStateRef.current = next
@@ -200,19 +223,16 @@ function App() {
           }
 
           if (inGear) {
-            // Wake zone: always cancel pending passthrough timer and go interactive
             if (inactiveTimer) { clearTimeout(inactiveTimer); inactiveTimer = null }
             if (!interactive) await setPassthrough(false)
-          } else if (interactive && !showSettingsRef.current && !isDraggingRef.current) {
-            // Outside wake zone: schedule passthrough after inactivity
+          } else if (interactive && !settingsOpenRef.current && !isDraggingRef.current) {
             if (!inactiveTimer) {
               inactiveTimer = window.setTimeout(async () => {
                 inactiveTimer = null
-                if (!showSettingsRef.current && !isDraggingRef.current) await setPassthrough(true)
+                if (!settingsOpenRef.current && !isDraggingRef.current) await setPassthrough(true)
               }, 1500)
             }
           } else if (isDraggingRef.current) {
-            // Dragging: keep interactive, cancel any pending passthrough timer
             if (inactiveTimer) { clearTimeout(inactiveTimer); inactiveTimer = null }
           }
         } catch { /* ignore */ }
@@ -234,20 +254,19 @@ function App() {
 
   // Long-press (400 ms) to start drag
   const handleMouseDown = useCallback(async (e: React.MouseEvent) => {
-    if (e.button !== 0 || showSettingsRef.current || !isTauri) return
+    if (e.button !== 0 || settingsOpenRef.current || !isTauri) return
     const startX = e.screenX, startY = e.screenY
 
-    // Guard against early mouse release during async setup
     let released = false
     const earlyUp = () => { released = true }
     window.addEventListener('mouseup', earlyUp, { once: true })
 
     const { appWindow, LogicalPosition } = await import('@tauri-apps/api/window')
-    const scale = await appWindow.scaleFactor()
+    const scale   = await appWindow.scaleFactor()
     const initPos = await appWindow.outerPosition()
-    const initWX = initPos.x / scale, initWY = initPos.y / scale
+    const initWX  = initPos.x / scale, initWY = initPos.y / scale
 
-    if (released) return  // button was released before async setup finished
+    if (released) return
 
     let dragging = false, pending = false
 
@@ -280,11 +299,6 @@ function App() {
     window.addEventListener('mouseup', onUp)
   }, [])
 
-  const closeSettings = useCallback(async () => {
-    setShowSettings(false)
-    // Window resize is handled by the size/showSettings effect above
-  }, [])
-
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     openSettings()
@@ -295,17 +309,6 @@ function App() {
     openSettings()
   }, [openSettings])
 
-  const handleQuit = useCallback(async () => {
-    if (isTauri) {
-      const { appWindow } = await import('@tauri-apps/api/window')
-      appWindow.close()
-    }
-  }, [])
-
-  // Click-through opacity (single-state, no intermediate render):
-  //   wake gear zone                 → 1      (fully opaque)
-  //   hovering over clock face       → 0.06   (nearly invisible)
-  //   not hovering                   → settings.opacity
   const clockOpacity = settings.clickThrough
     ? hoverState === 'wake' ? 1 : hoverState === 'hover' ? 0.06 : settings.opacity
     : settings.opacity
@@ -327,7 +330,6 @@ function App() {
           targetHour={settings.targetHour}
           targetMinute={settings.targetMinute}
         />
-        {/* Wake-gear: visual marker + click target for the wake zone */}
         <div
           className="wake-gear"
           onClick={openSettings}
@@ -337,17 +339,6 @@ function App() {
           title="Open Settings"
         >⚙</div>
       </div>
-
-      {showSettings && (
-        <div style={{ marginLeft: SETTINGS_GAP, alignSelf: 'center' }}>
-          <Settings
-            settings={settings}
-            onUpdate={updateSettings}
-            onClose={closeSettings}
-            onQuit={handleQuit}
-          />
-        </div>
-      )}
     </div>
   )
 }

@@ -14,17 +14,8 @@ type Corner = 'tl' | 'tr' | 'bl' | 'br'
 
 async function snapToCorner(corner: Corner, margin: number) {
   if (!isTauri) return
-  const { appWindow, LogicalPosition, currentMonitor } = await import('@tauri-apps/api/window')
-  const monitor = await currentMonitor()
-  if (!monitor) return
-  const sc = monitor.scaleFactor
-  const mX = monitor.position.x / sc, mY = monitor.position.y / sc
-  const mW = monitor.size.width / sc, mH = monitor.size.height / sc
-  const winSize = await appWindow.outerSize()
-  const wW = winSize.width / sc, wH = winSize.height / sc
-  const x = (corner === 'tr' || corner === 'br') ? mX + mW - wW - margin : mX + margin
-  const y = (corner === 'bl' || corner === 'br') ? mY + mH - wH - margin : mY + margin
-  await appWindow.setPosition(new LogicalPosition(x, y))
+  const { emit } = await import('@tauri-apps/api/event')
+  await emit('snap-to-corner', { corner, margin })
 }
 
 export default function Settings({ settings, onUpdate, onClose, onQuit }: Props) {
