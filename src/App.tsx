@@ -16,12 +16,14 @@ function App() {
   const [settings, setSettings] = useState<SettingsType>(defaultSettings)
   const [showSettings, setShowSettings] = useState(false)
   const [hovering, setHovering] = useState(false)
+  const [inWakeZone, setInWakeZone] = useState(false)
 
   const showSettingsRef = useRef(showSettings)
   showSettingsRef.current = showSettings
   const settingsRef = useRef(settings)
   settingsRef.current = settings
   const hoveringRef = useRef(false)
+  const inWakeZoneRef = useRef(false)
 
   useEffect(() => { loadSettings().then(setSettings) }, [])
 
@@ -147,12 +149,16 @@ function App() {
             && cx >= pos.x + sz.width - zone
             && cy >= pos.y + sz.height - zone
 
-          // Fade only when hovering outside the wake zone;
-          // entering the wake zone cancels transparency
+          // hovering (fade): in window but outside wake zone → 0.06
           const shouldFade = inWindow && !inGear
           if (shouldFade !== hoveringRef.current) {
             hoveringRef.current = shouldFade
             setHovering(shouldFade)
+          }
+          // inWakeZone: fully transparent (opacity 0)
+          if (inGear !== inWakeZoneRef.current) {
+            inWakeZoneRef.current = inGear
+            setInWakeZone(inGear)
           }
 
           if (inGear && !interactive) {
@@ -177,6 +183,8 @@ function App() {
       if (inactiveTimer) clearTimeout(inactiveTimer)
       hoveringRef.current = false
       setHovering(false)
+      inWakeZoneRef.current = false
+      setInWakeZone(false)
       import('@tauri-apps/api/window').then(({ appWindow }) => {
         appWindow.setIgnoreCursorEvents(false)
       }).catch(() => {})
@@ -282,8 +290,13 @@ function App() {
     }
   }, [])
 
-  // Fade to nearly invisible when hovering in click-through mode
-  const clockOpacity = settings.clickThrough && hovering ? 0.06 : settings.opacity
+  // Click-through opacity:
+  //   wake zone (bottom-right corner) → 0      (fully invisible)
+  //   hovering elsewhere over window  → 0.06   (nearly invisible)
+  //   not hovering                    → settings.opacity
+  const clockOpacity = settings.clickThrough
+    ? inWakeZone ? 0 : hovering ? 0.06 : settings.opacity
+    : settings.opacity
 
   return (
     <>
