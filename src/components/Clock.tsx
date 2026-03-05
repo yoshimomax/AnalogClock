@@ -4,6 +4,7 @@ interface ClockProps {
   size: number
   faceColor: string
   showSeconds: boolean
+  showDate: boolean
   targetEnabled: boolean
   targetHour: number
   targetMinute: number
@@ -20,6 +21,7 @@ export default function Clock({
   size,
   faceColor,
   showSeconds,
+  showDate,
   targetEnabled,
   targetHour,
   targetMinute,
@@ -49,6 +51,15 @@ export default function Clock({
   const center = size / 2
   const radius = size * 0.45
   const fontSize = Math.max(12, size * 0.06)
+
+  // Date display: midpoint between center and 3 o'clock position
+  const dateX = center + radius * 0.5
+  const dateY = center
+  const dateW = Math.max(32, radius * 0.38)
+  const dateH = Math.max(14, radius * 0.2)
+  const dateFontSize = Math.max(9, size * 0.048)
+  const today = new Date()
+  const dateStr = `${today.getMonth() + 1}/${today.getDate()}`
 
   const hourMarkers = useMemo(() => {
     return Array.from({ length: 12 }, (_, i) => {
@@ -242,6 +253,33 @@ export default function Clock({
             strokeLinecap="round"
           />
         </>
+      )}
+
+      {/* Date display window: between center and 3 o'clock */}
+      {showDate && (
+        <g>
+          <rect
+            x={dateX - dateW / 2}
+            y={dateY - dateH / 2}
+            width={dateW}
+            height={dateH}
+            fill={faceColor}
+            stroke={secondaryColor}
+            strokeWidth="1.2"
+            rx="3"
+            opacity="0.9"
+          />
+          <text
+            x={dateX}
+            y={dateY}
+            fill={textColor}
+            fontSize={dateFontSize}
+            fontWeight="600"
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontFamily="system-ui, sans-serif"
+          >{dateStr}</text>
+        </g>
       )}
 
       {/* Center cap */}

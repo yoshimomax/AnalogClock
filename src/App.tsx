@@ -5,7 +5,6 @@ import { Settings as SettingsType, defaultSettings, loadSettings } from './utils
 
 const isTauri = '__TAURI__' in window
 
-const LONG_PRESS_MS = 400
 const SETTINGS_W    = 310
 const SETTINGS_H    = 522
 const POS_KEY = 'clock-window-position'
@@ -213,7 +212,7 @@ function App() {
           const clockR  = clockPx * 0.45
 
           const inWindow = Math.hypot(cx - cCX, cy - cCY) <= clockR + 5 * sc
-          const gearCY   = pos.y + clockPx * 0.79
+          const gearCY   = pos.y + clockPx * 0.645
           const inGear   = Math.hypot(cx - cCX, cy - gearCY) <= 20 * sc
 
           const next = inGear ? 'wake' : inWindow ? 'hover' : 'none'
@@ -252,52 +251,43 @@ function App() {
     }
   }, [settings.clickThrough])
 
-  // Long-press (400 ms) to start drag
+  // Immediate drag: click+drag anywhere on clock face moves the window.
+  // If mouse is released without dragging and the click was on the gear icon, open settings.
   const handleMouseDown = useCallback(async (e: React.MouseEvent) => {
-    if (e.button !== 0 || settingsOpenRef.current || !isTauri) return
+    if (e.button !== 0 || !isTauri) return
     const startX = e.screenX, startY = e.screenY
-
-    let released = false
-    const earlyUp = () => { released = true }
-    window.addEventListener('mouseup', earlyUp, { once: true })
+    const isGear = (e.target as Element).closest('.wake-gear') !== null
 
     const { appWindow, LogicalPosition } = await import('@tauri-apps/api/window')
     const scale   = await appWindow.scaleFactor()
     const initPos = await appWindow.outerPosition()
     const initWX  = initPos.x / scale, initWY = initPos.y / scale
 
-    if (released) return
+    let dragged = false, pending = false
 
-    let dragging = false, pending = false
-
-    const startDrag = () => {
-      dragging = true
-      isDraggingRef.current = true
-      const onMove = async (ev: MouseEvent) => {
-        if (pending) return
-        pending = true
-        await appWindow.setPosition(new LogicalPosition(
-          initWX + ev.screenX - startX,
-          initWY + ev.screenY - startY,
-        ))
-        pending = false
+    const onMove = async (ev: MouseEvent) => {
+      const dx = ev.screenX - startX, dy = ev.screenY - startY
+      if (!dragged && Math.hypot(dx, dy) > 4) {
+        dragged = true
+        isDraggingRef.current = true
       }
-      const onUp = () => {
-        isDraggingRef.current = false
-        window.removeEventListener('mousemove', onMove)
-        window.removeEventListener('mouseup', onUp)
-      }
-      window.addEventListener('mousemove', onMove)
-      window.addEventListener('mouseup', onUp)
+      if (!dragged || pending) return
+      pending = true
+      await appWindow.setPosition(new LogicalPosition(initWX + dx, initWY + dy))
+      pending = false
     }
 
-    const timer = window.setTimeout(startDrag, LONG_PRESS_MS)
     const onUp = () => {
+      isDraggingRef.current = false
+      window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
-      if (!dragging) clearTimeout(timer)
+      // Treat as click if didn't drag: gear → open settings
+      if (!dragged && isGear) openSettings()
     }
+
+    window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [])
+  }, [openSettings])
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -326,17 +316,16 @@ function App() {
           size={settings.size}
           faceColor={settings.faceColor}
           showSeconds={settings.showSeconds}
+          showDate={settings.showDate}
           targetEnabled={settings.targetEnabled}
           targetHour={settings.targetHour}
           targetMinute={settings.targetMinute}
         />
         <div
           className="wake-gear"
-          onClick={openSettings}
-          onMouseDown={e => e.stopPropagation()}
           onDoubleClick={e => e.stopPropagation()}
           onContextMenu={e => e.stopPropagation()}
-          title="Open Settings"
+          title="設定を開く / Open Settings"
         >⚙</div>
       </div>
     </div>

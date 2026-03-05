@@ -7,6 +7,7 @@ export interface Settings {
   targetMinute: number
   alwaysOnTop: boolean
   showSeconds: boolean
+  showDate: boolean
   clickThrough: boolean
   snapMargin: number
 }
@@ -20,6 +21,7 @@ export const defaultSettings: Settings = {
   targetMinute: 0,
   alwaysOnTop: true,
   showSeconds: true,
+  showDate: false,
   clickThrough: false,
   snapMargin: 0,
 }

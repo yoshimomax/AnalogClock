@@ -73,6 +73,11 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
             Always on top
           </label>
           <label className="check-label">
+            <input type="checkbox" checked={settings.showDate}
+              onChange={e => onUpdate({ showDate: e.target.checked })} />
+            Date display
+          </label>
+          <label className="check-label">
             <input type="checkbox" checked={settings.clickThrough}
               onChange={e => onUpdate({ clickThrough: e.target.checked })} />
             Click-through
