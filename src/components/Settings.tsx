@@ -96,18 +96,53 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
 
         {/* Target time inputs (conditional) */}
         {settings.targetEnabled && (
-          <div className="time-inputs">
-            <input type="number" min="0" max="23" value={settings.targetHour}
-              onChange={e => onUpdate({ targetHour: Math.max(0, Math.min(23, +e.target.value || 0)) })} />
-            <span>時</span>
-            <input type="number" min="0" max="59" value={settings.targetMinute}
-              onChange={e => onUpdate({ targetMinute: Math.max(0, Math.min(59, +e.target.value || 0)) })} />
-            <span>分</span>
-            <input type="color" value={settings.targetColor}
-              onChange={e => onUpdate({ targetColor: e.target.value })}
-              style={{ width: 28, height: 28, padding: 1, border: '1.5px solid #d0d8e8', borderRadius: 6, cursor: 'pointer', background: 'none' }}
-              title="針の色" />
-          </div>
+          <>
+            <div className="time-inputs">
+              <input
+                type="number" min="1" max="12" value={settings.targetHour}
+                onChange={e => {
+                  const v = +e.target.value
+                  onUpdate({ targetHour: isNaN(v) ? 12 : Math.max(1, Math.min(12, v)) })
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault()
+                    onUpdate({ targetHour: settings.targetHour >= 12 ? 1 : settings.targetHour + 1 })
+                  } else if (e.key === 'ArrowDown') {
+                    e.preventDefault()
+                    onUpdate({ targetHour: settings.targetHour <= 1 ? 12 : settings.targetHour - 1 })
+                  }
+                }}
+              />
+              <span>時</span>
+              <input
+                type="number" min="0" max="59" value={settings.targetMinute}
+                onChange={e => {
+                  const v = +e.target.value
+                  onUpdate({ targetMinute: isNaN(v) ? 0 : Math.max(0, Math.min(59, v)) })
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault()
+                    onUpdate({ targetMinute: settings.targetMinute >= 59 ? 0 : settings.targetMinute + 1 })
+                  } else if (e.key === 'ArrowDown') {
+                    e.preventDefault()
+                    onUpdate({ targetMinute: settings.targetMinute <= 0 ? 59 : settings.targetMinute - 1 })
+                  }
+                }}
+              />
+              <span>分</span>
+              <input type="color" value={settings.targetColor}
+                onChange={e => onUpdate({ targetColor: e.target.value })}
+                style={{ width: 28, height: 28, padding: 1, border: '1.5px solid #d0d8e8', borderRadius: 6, cursor: 'pointer', background: 'none' }}
+                title="針の色" />
+            </div>
+            <label className="check-label" style={{ marginTop: 4 }}>
+              <input type="checkbox" checked={settings.targetAlarmEnabled}
+                onChange={e => onUpdate({ targetAlarmEnabled: e.target.checked })} />
+              Alarm (opacity flash)
+            </label>
+          </>
         )}
 
         {/* Corner snap */}

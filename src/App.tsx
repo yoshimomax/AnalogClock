@@ -18,7 +18,38 @@ function App() {
   const isDraggingRef   = useRef(false)
   const settingsOpenRef = useRef(false)  // true while the settings window exists
 
+  const [alarmActive, setAlarmActive]   = useState(false)
+  const alarmTriggeredRef = useRef('')   // 'H:MM' of the last triggered alarm minute
+  const alarmTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   useEffect(() => { loadSettings().then(setSettings) }, [])
+
+  // Target time alarm: flash opacity for 60 s when clock reaches target hour:minute
+  useEffect(() => {
+    if (!settings.targetEnabled || !settings.targetAlarmEnabled) {
+      setAlarmActive(false)
+      return
+    }
+    const interval = setInterval(() => {
+      const now = new Date()
+      const h = now.getHours() % 12 || 12   // 1-12
+      const m = now.getMinutes()
+      const key = `${h}:${m}`
+      if (h === settings.targetHour && m === settings.targetMinute) {
+        if (alarmTriggeredRef.current !== key) {
+          alarmTriggeredRef.current = key
+          setAlarmActive(true)
+          if (alarmTimerRef.current) clearTimeout(alarmTimerRef.current)
+          alarmTimerRef.current = setTimeout(() => setAlarmActive(false), 60_000)
+        }
+      }
+    }, 1000)
+    return () => {
+      clearInterval(interval)
+      if (alarmTimerRef.current) clearTimeout(alarmTimerRef.current)
+      setAlarmActive(false)
+    }
+  }, [settings.targetEnabled, settings.targetAlarmEnabled, settings.targetHour, settings.targetMinute])
 
   // Receive live settings updates from the settings window
   useEffect(() => {
@@ -301,8 +332,8 @@ function App() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
       <div
-        className="app"
-        style={{ width: settings.size, height: settings.size, opacity: clockOpacity }}
+        className={`app${alarmActive ? ' alarm-active' : ''}`}
+        style={{ width: settings.size, height: settings.size, opacity: alarmActive ? undefined : clockOpacity }}
         onMouseDown={handleMouseDown}
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}

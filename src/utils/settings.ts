@@ -6,6 +6,7 @@ export interface Settings {
   targetHour: number
   targetMinute: number
   targetColor: string
+  targetAlarmEnabled: boolean
   alwaysOnTop: boolean
   showSeconds: boolean
   showDate: boolean
@@ -22,6 +23,7 @@ export const defaultSettings: Settings = {
   targetHour: 12,
   targetMinute: 0,
   targetColor: '#00aa00',
+  targetAlarmEnabled: false,
   alwaysOnTop: true,
   showSeconds: true,
   showDate: false,
@@ -49,7 +51,12 @@ export async function loadSettings(): Promise<Settings> {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
-      return { ...defaultSettings, ...JSON.parse(saved) }
+      const merged = { ...defaultSettings, ...JSON.parse(saved) }
+      // Migrate: targetHour must be 1-12
+      if (merged.targetHour < 1 || merged.targetHour > 12) {
+        merged.targetHour = ((merged.targetHour - 1 + 12) % 12) + 1
+      }
+      return merged
     }
   } catch (e) {
     console.error('Failed to load settings:', e)

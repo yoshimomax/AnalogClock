@@ -31,6 +31,16 @@ body {
   cursor: grabbing;
 }
 
+/* ── Target time alarm: opacity flash ── */
+@keyframes alarm-flash {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.08; }
+}
+.alarm-active {
+  animation: alarm-flash 0.9s ease-in-out infinite;
+  transition: none;
+}
+
 /* ── Wake-gear icon ──
    Sits at the 6-o'clock inner position on the clock face.
    Acts as a visual hint for the wake zone in click-through mode
