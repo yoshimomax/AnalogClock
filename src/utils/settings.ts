@@ -5,6 +5,7 @@ export interface Settings {
   targetEnabled: boolean
   targetHour: number
   targetMinute: number
+  targetColor: string
   alwaysOnTop: boolean
   showSeconds: boolean
   showDate: boolean
@@ -20,6 +21,7 @@ export const defaultSettings: Settings = {
   targetEnabled: false,
   targetHour: 12,
   targetMinute: 0,
+  targetColor: '#00aa00',
   alwaysOnTop: true,
   showSeconds: true,
   showDate: false,

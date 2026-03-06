@@ -9,6 +9,7 @@ interface ClockProps {
   targetEnabled: boolean
   targetHour: number
   targetMinute: number
+  targetColor: string
 }
 
 function getLuminance(hex: string): number {
@@ -27,6 +28,7 @@ export default function Clock({
   targetEnabled,
   targetHour,
   targetMinute,
+  targetColor,
 }: ClockProps) {
   const [time, setTime] = useState(new Date())
 
@@ -229,7 +231,7 @@ export default function Clock({
             y1={center}
             x2={center + radius * 0.5 * Math.sin(targetHourAngle * Math.PI / 180)}
             y2={center - radius * 0.5 * Math.cos(targetHourAngle * Math.PI / 180)}
-            stroke="#00aa00"
+            stroke={targetColor}
             strokeWidth="5"
             strokeLinecap="round"
             strokeDasharray="8 4"
@@ -239,7 +241,7 @@ export default function Clock({
             y1={center}
             x2={center + radius * 0.7 * Math.sin(targetMinuteAngle * Math.PI / 180)}
             y2={center - radius * 0.7 * Math.cos(targetMinuteAngle * Math.PI / 180)}
-            stroke="#00aa00"
+            stroke={targetColor}
             strokeWidth="3"
             strokeLinecap="round"
             strokeDasharray="8 4"

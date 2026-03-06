@@ -103,6 +103,10 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
             <input type="number" min="0" max="59" value={settings.targetMinute}
               onChange={e => onUpdate({ targetMinute: Math.max(0, Math.min(59, +e.target.value || 0)) })} />
             <span>分</span>
+            <input type="color" value={settings.targetColor}
+              onChange={e => onUpdate({ targetColor: e.target.value })}
+              style={{ width: 28, height: 28, padding: 1, border: '1.5px solid #d0d8e8', borderRadius: 6, cursor: 'pointer', background: 'none' }}
+              title="針の色" />
           </div>
         )}
 

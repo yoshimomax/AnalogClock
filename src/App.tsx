@@ -305,6 +305,7 @@ function App() {
           targetEnabled={settings.targetEnabled}
           targetHour={settings.targetHour}
           targetMinute={settings.targetMinute}
+          targetColor={settings.targetColor}
         />
         <div
           className="wake-gear"
