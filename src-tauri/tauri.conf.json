@@ -18,7 +18,10 @@
       "window": {
         "create": true,
         "startDragging": true,
+        "show": true,
+        "hide": true,
         "close": true,
+        "setFocus": true,
         "setAlwaysOnTop": true,
         "setPosition": true,
         "setSize": true,
