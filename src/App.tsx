@@ -104,7 +104,6 @@ function App() {
     const sc      = await appWindow.scaleFactor()
     const pos     = await appWindow.outerPosition()
     const monitor = await currentMonitor()
-    const s       = settingsRef.current.size
     let x = pos.x / sc - SETTINGS_W - 12
     let y = pos.y / sc
     if (monitor) {
@@ -247,7 +246,8 @@ function App() {
     let dragged = false, pending = false
     // Lazily fetched on first actual drag movement so we don't block listener registration
     let initWX = 0, initWY = 0
-    let winRef: { appWindow: Awaited<ReturnType<typeof import('@tauri-apps/api/window')>>['appWindow'], LogicalPosition: Awaited<ReturnType<typeof import('@tauri-apps/api/window')>>['LogicalPosition'] } | null = null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let winRef: { appWindow: any; LogicalPosition: any } | null = null
     let posReady = false
 
     const onMove = async (ev: MouseEvent) => {
