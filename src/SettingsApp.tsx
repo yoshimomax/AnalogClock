@@ -1,21 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
 import Settings from './components/Settings'
-import { Settings as SettingsType, defaultSettings, loadSettings, saveSettings } from './utils/settings'
+import { Settings as SettingsType, loadSettings, saveSettings } from './utils/settings'
 
 const isTauri = '__TAURI__' in window
 
 export default function SettingsApp() {
-  const [settings, setSettings] = useState<SettingsType>(defaultSettings)
+  // loadSettings() is synchronous (localStorage), so state is correct on first render
+  const [settings, setSettings] = useState<SettingsType>(loadSettings)
 
+  // Show the window immediately after first render – no need to wait for async work
   useEffect(() => {
-    loadSettings().then(s => {
-      setSettings(s)
-      // Show the window only after settings are loaded to avoid a flash at the wrong position
-      if (isTauri) {
-        import('@tauri-apps/api/window').then(({ appWindow }) => appWindow.show())
-      }
-    })
+    if (isTauri) {
+      import('@tauri-apps/api/window').then(({ appWindow }) => appWindow.show())
+    }
   }, [])
 
   const updateSettings = useCallback((patch: Partial<SettingsType>) => {

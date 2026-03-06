@@ -121,7 +121,7 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
                     }}
                     style={{ width: 60 }}
                   />
-                  <span>分後</span>
+                  <span>min</span>
                 </>
               ) : (
                 <>

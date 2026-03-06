@@ -6,7 +6,7 @@ import { Settings as SettingsType, defaultSettings, loadSettings, saveSettings }
 const isTauri = '__TAURI__' in window
 
 const SETTINGS_W    = 310
-const SETTINGS_H    = 522
+const SETTINGS_H    = 560
 
 function App() {
   const [settings, setSettings] = useState<SettingsType>(defaultSettings)
@@ -22,7 +22,7 @@ function App() {
   const alarmTriggeredRef = useRef('')   // 'H:MM' of the last triggered alarm minute
   const alarmTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => { loadSettings().then(setSettings) }, [])
+  useEffect(() => { setSettings(loadSettings()) }, [])
 
   const updateSettings = useCallback((patch: Partial<SettingsType>) => {
     setSettings(prev => {
@@ -137,15 +137,16 @@ function App() {
     // If the settings window is already open, just focus it
     const existing = WebviewWindow.getByLabel('settings-panel')
     if (existing) {
-      await existing.show()
-      await existing.setFocus()
+      await Promise.all([existing.show(), existing.setFocus()])
       return
     }
 
-    // Position to the left of the clock; clamp to monitor bounds
-    const sc      = await appWindow.scaleFactor()
-    const pos     = await appWindow.outerPosition()
-    const monitor = await currentMonitor()
+    // Position to the left of the clock; clamp to monitor bounds (fetched in parallel)
+    const [sc, pos, monitor] = await Promise.all([
+      appWindow.scaleFactor(),
+      appWindow.outerPosition(),
+      currentMonitor(),
+    ])
     let x = pos.x / sc - SETTINGS_W - 12
     let y = pos.y / sc
     if (monitor) {

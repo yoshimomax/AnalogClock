@@ -51,7 +51,7 @@ export const PRESET_COLORS = [
 
 const STORAGE_KEY = 'analog-clock-settings'
 
-export async function loadSettings(): Promise<Settings> {
+export function loadSettings(): Settings {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
@@ -68,7 +68,7 @@ export async function loadSettings(): Promise<Settings> {
   return defaultSettings
 }
 
-export async function saveSettings(settings: Settings): Promise<void> {
+export function saveSettings(settings: Settings): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
   } catch (e) {

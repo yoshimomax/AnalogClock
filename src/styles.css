@@ -95,7 +95,6 @@ body {
 /* ── Target mode toggle ── */
 .target-mode-toggle {
   display: flex;
-  gap: 0;
   margin-bottom: 6px;
   border-radius: 7px;
   overflow: hidden;
