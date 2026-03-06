@@ -102,11 +102,11 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
               <button
                 className={`mode-btn${settings.targetMode === 'absolute' ? ' active' : ''}`}
                 onClick={() => onUpdate({ targetMode: 'absolute' })}
-              >指定時刻</button>
+              >Fixed Time</button>
               <button
                 className={`mode-btn${settings.targetMode === 'offset' ? ' active' : ''}`}
                 onClick={() => onUpdate({ targetMode: 'offset' })}
-              >あと何分後</button>
+              >From Now</button>
             </div>
 
             <div className="time-inputs">
