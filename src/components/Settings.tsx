@@ -101,34 +101,22 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
               <input
                 type="number" min="1" max="12" value={settings.targetHour}
                 onChange={e => {
+                  if (e.target.value === '') return
                   const v = +e.target.value
-                  onUpdate({ targetHour: isNaN(v) ? 12 : Math.max(1, Math.min(12, v)) })
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'ArrowUp') {
-                    e.preventDefault()
-                    onUpdate({ targetHour: settings.targetHour >= 12 ? 1 : settings.targetHour + 1 })
-                  } else if (e.key === 'ArrowDown') {
-                    e.preventDefault()
-                    onUpdate({ targetHour: settings.targetHour <= 1 ? 12 : settings.targetHour - 1 })
-                  }
+                  if (v > 12) onUpdate({ targetHour: 1 })
+                  else if (v < 1) onUpdate({ targetHour: 12 })
+                  else onUpdate({ targetHour: v })
                 }}
               />
               <span>時</span>
               <input
                 type="number" min="0" max="59" value={settings.targetMinute}
                 onChange={e => {
+                  if (e.target.value === '') return
                   const v = +e.target.value
-                  onUpdate({ targetMinute: isNaN(v) ? 0 : Math.max(0, Math.min(59, v)) })
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'ArrowUp') {
-                    e.preventDefault()
-                    onUpdate({ targetMinute: settings.targetMinute >= 59 ? 0 : settings.targetMinute + 1 })
-                  } else if (e.key === 'ArrowDown') {
-                    e.preventDefault()
-                    onUpdate({ targetMinute: settings.targetMinute <= 0 ? 59 : settings.targetMinute - 1 })
-                  }
+                  if (v > 59) onUpdate({ targetMinute: 0 })
+                  else if (v < 0) onUpdate({ targetMinute: 59 })
+                  else onUpdate({ targetMinute: v })
                 }}
               />
               <span>分</span>
