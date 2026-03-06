@@ -135,9 +135,9 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
                       else onUpdate({ targetHour: Math.round(v) })
                     }}
                   />
-                  <span>時</span>
+                  <span>:</span>
                   <input
-                    type="number" value={settings.targetMinute}
+                    type="number" value={String(settings.targetMinute).padStart(2, '0')}
                     onChange={e => {
                       if (e.target.value === '') return
                       const v = +e.target.value
@@ -146,7 +146,6 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
                       else onUpdate({ targetMinute: Math.round(v) })
                     }}
                   />
-                  <span>分</span>
                 </>
               )}
               <input type="color" value={settings.targetColor}
@@ -154,13 +153,11 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
                 style={{ width: 28, height: 28, padding: 1, border: '1.5px solid #d0d8e8', borderRadius: 6, cursor: 'pointer', background: 'none' }}
                 title="針の色" />
             </div>
-            {settings.targetMode === 'absolute' && (
-              <label className="check-label" style={{ marginTop: 4 }}>
-                <input type="checkbox" checked={settings.targetAlarmEnabled}
-                  onChange={e => onUpdate({ targetAlarmEnabled: e.target.checked })} />
-                Alarm (opacity flash)
-              </label>
-            )}
+            <label className="check-label" style={{ marginTop: 4 }}>
+              <input type="checkbox" checked={settings.targetAlarmEnabled}
+                onChange={e => onUpdate({ targetAlarmEnabled: e.target.checked })} />
+              Alarm (opacity flash)
+            </label>
           </>
         )}
 

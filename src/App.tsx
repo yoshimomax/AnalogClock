@@ -37,7 +37,7 @@ function App() {
 
   // Target time alarm: flash opacity for 60 s when clock reaches target hour:minute
   useEffect(() => {
-    if (!settings.targetEnabled || !settings.targetAlarmEnabled || settings.targetMode === 'offset') {
+    if (!settings.targetEnabled || !settings.targetAlarmEnabled) {
       setAlarmActive(false)
       return
     }
@@ -60,7 +60,7 @@ function App() {
       if (alarmTimerRef.current) clearTimeout(alarmTimerRef.current)
       setAlarmActive(false)
     }
-  }, [settings.targetEnabled, settings.targetAlarmEnabled, settings.targetMode, settings.targetHour, settings.targetMinute])
+  }, [settings.targetEnabled, settings.targetAlarmEnabled, settings.targetHour, settings.targetMinute])
 
   // Receive live settings updates from the settings window
   useEffect(() => {
