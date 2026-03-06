@@ -8,7 +8,15 @@ const isTauri = '__TAURI__' in window
 export default function SettingsApp() {
   const [settings, setSettings] = useState<SettingsType>(defaultSettings)
 
-  useEffect(() => { loadSettings().then(setSettings) }, [])
+  useEffect(() => {
+    loadSettings().then(s => {
+      setSettings(s)
+      // Show the window only after settings are loaded to avoid a flash at the wrong position
+      if (isTauri) {
+        import('@tauri-apps/api/window').then(({ appWindow }) => appWindow.show())
+      }
+    })
+  }, [])
 
   const updateSettings = useCallback((patch: Partial<SettingsType>) => {
     setSettings(prev => {

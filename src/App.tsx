@@ -53,7 +53,7 @@ function App() {
     return () => { unlisten?.() }
   }, [])
 
-  // On startup: always place clock at top-right of primary monitor
+  // On startup: position clock at top-right of primary monitor, then reveal it
   useEffect(() => {
     if (!isTauri) return
     import('@tauri-apps/api/window').then(async ({ appWindow, LogicalPosition, primaryMonitor }) => {
@@ -66,6 +66,7 @@ function App() {
       const s      = settingsRef.current.size
       const margin = settingsRef.current.snapMargin
       await appWindow.setPosition(new LogicalPosition(mX + mW - s - margin, mY + margin))
+      await appWindow.show()
     })
   }, [])
 
@@ -99,12 +100,12 @@ function App() {
       return
     }
 
-    // Position to the right of the clock; clamp to monitor bounds
+    // Position to the left of the clock; clamp to monitor bounds
     const sc      = await appWindow.scaleFactor()
     const pos     = await appWindow.outerPosition()
     const monitor = await currentMonitor()
     const s       = settingsRef.current.size
-    let x = pos.x / sc + s + 12
+    let x = pos.x / sc - SETTINGS_W - 12
     let y = pos.y / sc
     if (monitor) {
       const mX = monitor.position.x / sc, mY = monitor.position.y / sc
@@ -125,6 +126,7 @@ function App() {
       decorations: true,
       transparent: false,
       alwaysOnTop: true,
+      visible: false,
       x,
       y,
     })
@@ -235,28 +237,36 @@ function App() {
   // Immediate drag: click+drag anywhere on clock face moves the window.
   // If mouse is released without dragging and the click was on the gear icon, open settings.
   // In click-through mode, dragging is only allowed from the gear zone (hoverState === 'wake').
-  const handleMouseDown = useCallback(async (e: React.MouseEvent) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0 || !isTauri) return
     // Click-through mode: outside gear zone means clicks should fall through — don't start drag
     if (settingsRef.current.clickThrough && hoverStateRef.current !== 'wake') return
     const startX = e.screenX, startY = e.screenY
     const isGear = (e.target as Element).closest('.wake-gear') !== null
 
-    const { appWindow, LogicalPosition } = await import('@tauri-apps/api/window')
-    const scale   = await appWindow.scaleFactor()
-    const initPos = await appWindow.outerPosition()
-    const initWX  = initPos.x / scale, initWY = initPos.y / scale
-
     let dragged = false, pending = false
+    // Lazily fetched on first actual drag movement so we don't block listener registration
+    let initWX = 0, initWY = 0
+    let winRef: { appWindow: Awaited<ReturnType<typeof import('@tauri-apps/api/window')>>['appWindow'], LogicalPosition: Awaited<ReturnType<typeof import('@tauri-apps/api/window')>>['LogicalPosition'] } | null = null
+    let posReady = false
 
     const onMove = async (ev: MouseEvent) => {
       const dx = ev.screenX - startX, dy = ev.screenY - startY
       if (!dragged && Math.hypot(dx, dy) > 4) {
         dragged = true
         isDraggingRef.current = true
+        // Fetch window position lazily, at the moment dragging starts
+        const { appWindow, LogicalPosition } = await import('@tauri-apps/api/window')
+        const scale   = await appWindow.scaleFactor()
+        const initPos = await appWindow.outerPosition()
+        initWX = initPos.x / scale
+        initWY = initPos.y / scale
+        winRef = { appWindow, LogicalPosition }
+        posReady = true
       }
-      if (!dragged || pending) return
+      if (!dragged || pending || !posReady || !winRef) return
       pending = true
+      const { appWindow, LogicalPosition } = winRef
       await appWindow.setPosition(new LogicalPosition(initWX + dx, initWY + dy))
       pending = false
     }
@@ -269,6 +279,7 @@ function App() {
       if (!dragged && isGear) openSettings()
     }
 
+    // Register listeners synchronously before any async work
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
   }, [openSettings])
