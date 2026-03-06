@@ -29,13 +29,15 @@ fn get_cursor_pos() -> (i32, i32) {
 }
 
 fn build_tray() -> SystemTray {
-    let settings  = CustomMenuItem::new("settings",  "設定を開く");
-    let show_hide = CustomMenuItem::new("show_hide", "表示 / 非表示");
-    let quit      = CustomMenuItem::new("quit",      "終了");
+    let settings  = CustomMenuItem::new("settings",   "設定を開く");
+    let show_hide = CustomMenuItem::new("show_hide",  "表示 / 非表示");
+    let recover   = CustomMenuItem::new("recover_pos","位置を復元");
+    let quit      = CustomMenuItem::new("quit",       "終了");
     let menu = SystemTrayMenu::new()
         .add_item(settings)
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(show_hide)
+        .add_item(recover)
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(quit);
     SystemTray::new().with_menu(menu)
@@ -66,7 +68,13 @@ fn main() {
                         let _ = win.emit("tray-open-settings", ());
                     }
                 }
-                "show_hide" => toggle_window(app),
+                "show_hide"   => toggle_window(app),
+                "recover_pos" => {
+                    if let Some(win) = app.get_window("main") {
+                        let _ = win.show();
+                        let _ = win.emit("tray-recover-position", ());
+                    }
+                }
                 "quit"      => std::process::exit(0),
                 _           => {}
             },

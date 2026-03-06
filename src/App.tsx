@@ -95,6 +95,64 @@ function App() {
     return () => { unlisten?.() }
   }, [])
 
+  // Recover window to primary monitor top-right.
+  // When onlyIfOffscreen=true (auto-detect), skip if the window center is already on any monitor.
+  const recoverPosition = useCallback(async (onlyIfOffscreen = false) => {
+    if (!isTauri) return
+    try {
+      const { appWindow, LogicalPosition, primaryMonitor, availableMonitors } = await import('@tauri-apps/api/window')
+      const [primary, sc, pos] = await Promise.all([
+        primaryMonitor(),
+        appWindow.scaleFactor(),
+        appWindow.outerPosition(),
+      ])
+      if (!primary) return
+
+      if (onlyIfOffscreen) {
+        const monitors = await availableMonitors()
+        const s = settingsRef.current.size
+        const cx = pos.x + (s * sc) / 2
+        const cy = pos.y + (s * sc) / 2
+        const visible = monitors.some(m =>
+          cx >= m.position.x && cx < m.position.x + m.size.width &&
+          cy >= m.position.y && cy < m.position.y + m.size.height
+        )
+        if (visible) return
+      }
+
+      const psc    = primary.scaleFactor
+      const s      = settingsRef.current.size
+      const margin = settingsRef.current.snapMargin
+      await appWindow.show()
+      await appWindow.setPosition(new LogicalPosition(
+        primary.position.x / psc + primary.size.width  / psc - s - margin,
+        primary.position.y / psc + margin,
+      ))
+    } catch { /* ignore */ }
+  }, [])
+
+  // Auto-recover when the window gains focus (e.g. after sleep/wake or monitor change)
+  useEffect(() => {
+    if (!isTauri) return
+    let unlisten: (() => void) | null = null
+    import('@tauri-apps/api/window').then(({ appWindow }) => {
+      appWindow.listen('tauri://focus', () => recoverPosition(true))
+        .then(fn => { unlisten = fn })
+    })
+    return () => { unlisten?.() }
+  }, [recoverPosition])
+
+  // Tray "位置を復元": always snap to primary top-right
+  useEffect(() => {
+    if (!isTauri) return
+    let unlisten: (() => void) | null = null
+    import('@tauri-apps/api/event').then(({ listen }) => {
+      listen('tray-recover-position', () => recoverPosition(false))
+        .then(fn => { unlisten = fn })
+    })
+    return () => { unlisten?.() }
+  }, [recoverPosition])
+
   // On startup: position clock at top-right of primary monitor, then reveal it
   useEffect(() => {
     if (!isTauri) return
