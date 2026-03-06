@@ -97,39 +97,70 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
         {/* Target time inputs (conditional) */}
         {settings.targetEnabled && (
           <>
+            {/* Mode toggle */}
+            <div className="target-mode-toggle">
+              <button
+                className={`mode-btn${settings.targetMode === 'absolute' ? ' active' : ''}`}
+                onClick={() => onUpdate({ targetMode: 'absolute' })}
+              >指定時刻</button>
+              <button
+                className={`mode-btn${settings.targetMode === 'offset' ? ' active' : ''}`}
+                onClick={() => onUpdate({ targetMode: 'offset' })}
+              >あと何分後</button>
+            </div>
+
             <div className="time-inputs">
-              <input
-                type="number" value={settings.targetHour}
-                onChange={e => {
-                  if (e.target.value === '') return
-                  const v = +e.target.value
-                  if (v > 12) onUpdate({ targetHour: 1 })
-                  else if (v < 1) onUpdate({ targetHour: 12 })
-                  else onUpdate({ targetHour: Math.round(v) })
-                }}
-              />
-              <span>時</span>
-              <input
-                type="number" value={settings.targetMinute}
-                onChange={e => {
-                  if (e.target.value === '') return
-                  const v = +e.target.value
-                  if (v > 59) onUpdate({ targetMinute: 0 })
-                  else if (v < 0) onUpdate({ targetMinute: 59 })
-                  else onUpdate({ targetMinute: Math.round(v) })
-                }}
-              />
-              <span>分</span>
+              {settings.targetMode === 'offset' ? (
+                <>
+                  <input
+                    type="number" value={settings.targetOffsetMinutes}
+                    onChange={e => {
+                      if (e.target.value === '') return
+                      const v = Math.max(1, Math.min(720, Math.round(+e.target.value)))
+                      onUpdate({ targetOffsetMinutes: v })
+                    }}
+                    style={{ width: 60 }}
+                  />
+                  <span>分後</span>
+                </>
+              ) : (
+                <>
+                  <input
+                    type="number" value={settings.targetHour}
+                    onChange={e => {
+                      if (e.target.value === '') return
+                      const v = +e.target.value
+                      if (v > 12) onUpdate({ targetHour: 1 })
+                      else if (v < 1) onUpdate({ targetHour: 12 })
+                      else onUpdate({ targetHour: Math.round(v) })
+                    }}
+                  />
+                  <span>時</span>
+                  <input
+                    type="number" value={settings.targetMinute}
+                    onChange={e => {
+                      if (e.target.value === '') return
+                      const v = +e.target.value
+                      if (v > 59) onUpdate({ targetMinute: 0 })
+                      else if (v < 0) onUpdate({ targetMinute: 59 })
+                      else onUpdate({ targetMinute: Math.round(v) })
+                    }}
+                  />
+                  <span>分</span>
+                </>
+              )}
               <input type="color" value={settings.targetColor}
                 onChange={e => onUpdate({ targetColor: e.target.value })}
                 style={{ width: 28, height: 28, padding: 1, border: '1.5px solid #d0d8e8', borderRadius: 6, cursor: 'pointer', background: 'none' }}
                 title="針の色" />
             </div>
-            <label className="check-label" style={{ marginTop: 4 }}>
-              <input type="checkbox" checked={settings.targetAlarmEnabled}
-                onChange={e => onUpdate({ targetAlarmEnabled: e.target.checked })} />
-              Alarm (opacity flash)
-            </label>
+            {settings.targetMode === 'absolute' && (
+              <label className="check-label" style={{ marginTop: 4 }}>
+                <input type="checkbox" checked={settings.targetAlarmEnabled}
+                  onChange={e => onUpdate({ targetAlarmEnabled: e.target.checked })} />
+                Alarm (opacity flash)
+              </label>
+            )}
           </>
         )}
 

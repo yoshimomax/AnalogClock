@@ -7,6 +7,8 @@ export interface Settings {
   targetMinute: number
   targetColor: string
   targetAlarmEnabled: boolean
+  targetMode: 'absolute' | 'offset'
+  targetOffsetMinutes: number
   alwaysOnTop: boolean
   showSeconds: boolean
   showDate: boolean
@@ -24,6 +26,8 @@ export const defaultSettings: Settings = {
   targetMinute: 0,
   targetColor: '#00aa00',
   targetAlarmEnabled: false,
+  targetMode: 'absolute',
+  targetOffsetMinutes: 30,
   alwaysOnTop: true,
   showSeconds: true,
   showDate: false,

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
 import Clock from './components/Clock'
-import { Settings as SettingsType, defaultSettings, loadSettings } from './utils/settings'
+import { Settings as SettingsType, defaultSettings, loadSettings, saveSettings } from './utils/settings'
 
 const isTauri = '__TAURI__' in window
 
@@ -24,9 +24,20 @@ function App() {
 
   useEffect(() => { loadSettings().then(setSettings) }, [])
 
+  const updateSettings = useCallback((patch: Partial<SettingsType>) => {
+    setSettings(prev => {
+      const next = { ...prev, ...patch }
+      saveSettings(next)
+      if (isTauri) {
+        import('@tauri-apps/api/event').then(({ emit }) => emit('settings-update', next))
+      }
+      return next
+    })
+  }, [])
+
   // Target time alarm: flash opacity for 60 s when clock reaches target hour:minute
   useEffect(() => {
-    if (!settings.targetEnabled || !settings.targetAlarmEnabled) {
+    if (!settings.targetEnabled || !settings.targetAlarmEnabled || settings.targetMode === 'offset') {
       setAlarmActive(false)
       return
     }
@@ -49,7 +60,7 @@ function App() {
       if (alarmTimerRef.current) clearTimeout(alarmTimerRef.current)
       setAlarmActive(false)
     }
-  }, [settings.targetEnabled, settings.targetAlarmEnabled, settings.targetHour, settings.targetMinute])
+  }, [settings.targetEnabled, settings.targetAlarmEnabled, settings.targetMode, settings.targetHour, settings.targetMinute])
 
   // Receive live settings updates from the settings window
   useEffect(() => {
@@ -348,7 +359,22 @@ function App() {
           targetHour={settings.targetHour}
           targetMinute={settings.targetMinute}
           targetColor={settings.targetColor}
+          targetMode={settings.targetMode}
+          targetOffsetMinutes={settings.targetOffsetMinutes}
         />
+        {alarmActive && (
+          <button
+            className="alarm-stop-btn"
+            onMouseDown={e => e.stopPropagation()}
+            onClick={e => {
+              e.stopPropagation()
+              setAlarmActive(false)
+              if (alarmTimerRef.current) { clearTimeout(alarmTimerRef.current); alarmTimerRef.current = null }
+              updateSettings({ targetAlarmEnabled: false })
+            }}
+            title="アラームを止める"
+          >Stop Alarm</button>
+        )}
         <div
           className="wake-gear"
           onDoubleClick={e => e.stopPropagation()}
