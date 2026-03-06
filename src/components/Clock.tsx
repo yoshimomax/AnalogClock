@@ -53,7 +53,7 @@ export default function Clock({
   const fontSize = Math.max(12, size * 0.06)
 
   // Date display: midpoint between center and 3 o'clock position
-  const dateX = center + radius * 0.5
+  const dateX = center + radius * 0.325
   const dateY = center
   const dateFontSize = Math.max(9, size * 0.048)
   const dateW = Math.max(18, dateFontSize * 1.8)   // fits "31" + minimal padding
