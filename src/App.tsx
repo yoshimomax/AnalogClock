@@ -7,7 +7,6 @@ const isTauri = '__TAURI__' in window
 
 const SETTINGS_W    = 310
 const SETTINGS_H    = 522
-const POS_KEY = 'clock-window-position'
 
 function App() {
   const [settings, setSettings] = useState<SettingsType>(defaultSettings)
@@ -54,38 +53,20 @@ function App() {
     return () => { unlisten?.() }
   }, [])
 
-  // Restore last window position on startup
+  // On startup: always place clock at top-right of primary monitor
   useEffect(() => {
     if (!isTauri) return
-    const saved = localStorage.getItem(POS_KEY)
-    if (!saved) return
-    try {
-      const { x, y } = JSON.parse(saved)
-      import('@tauri-apps/api/window').then(({ appWindow, LogicalPosition }) => {
-        appWindow.setPosition(new LogicalPosition(x, y))
-      })
-    } catch { /* ignore malformed data */ }
-  }, [])
-
-  // Save window position whenever it moves (debounced)
-  useEffect(() => {
-    if (!isTauri) return
-    let unlisten: (() => void) | null = null
-    let timer: number | null = null
-    import('@tauri-apps/api/window').then(async ({ appWindow }) => {
-      unlisten = await appWindow.listen('tauri://move', async () => {
-        if (timer) clearTimeout(timer)
-        timer = window.setTimeout(async () => {
-          const pos = await appWindow.outerPosition()
-          const sc  = await appWindow.scaleFactor()
-          localStorage.setItem(POS_KEY, JSON.stringify({ x: pos.x / sc, y: pos.y / sc }))
-        }, 500)
-      })
+    import('@tauri-apps/api/window').then(async ({ appWindow, LogicalPosition, primaryMonitor }) => {
+      const monitor = await primaryMonitor()
+      if (!monitor) return
+      const sc     = monitor.scaleFactor
+      const mX     = monitor.position.x / sc
+      const mY     = monitor.position.y / sc
+      const mW     = monitor.size.width  / sc
+      const s      = settingsRef.current.size
+      const margin = settingsRef.current.snapMargin
+      await appWindow.setPosition(new LogicalPosition(mX + mW - s - margin, mY + margin))
     })
-    return () => {
-      if (unlisten) unlisten()
-      if (timer) clearTimeout(timer)
-    }
   }, [])
 
   // Sync alwaysOnTop
