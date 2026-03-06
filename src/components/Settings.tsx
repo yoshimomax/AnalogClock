@@ -78,6 +78,11 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
             Date display
           </label>
           <label className="check-label">
+            <input type="checkbox" checked={settings.showNumbers}
+              onChange={e => onUpdate({ showNumbers: e.target.checked })} />
+            Numbers
+          </label>
+          <label className="check-label">
             <input type="checkbox" checked={settings.clickThrough}
               onChange={e => onUpdate({ clickThrough: e.target.checked })} />
             Click-through

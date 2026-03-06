@@ -5,6 +5,7 @@ interface ClockProps {
   faceColor: string
   showSeconds: boolean
   showDate: boolean
+  showNumbers: boolean
   targetEnabled: boolean
   targetHour: number
   targetMinute: number
@@ -22,6 +23,7 @@ export default function Clock({
   faceColor,
   showSeconds,
   showDate,
+  showNumbers,
   targetEnabled,
   targetHour,
   targetMinute,
@@ -175,18 +177,20 @@ export default function Clock({
             strokeWidth="3"
             strokeLinecap="round"
           />
-          <text
-            x={m.numX}
-            y={m.numY}
-            fill={textColor}
-            fontSize={fontSize}
-            fontWeight="700"
-            textAnchor="middle"
-            dominantBaseline="central"
-            fontFamily="system-ui, sans-serif"
-          >
-            {m.num}
-          </text>
+          {showNumbers && (
+            <text
+              x={m.numX}
+              y={m.numY}
+              fill={textColor}
+              fontSize={fontSize}
+              fontWeight="700"
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontFamily="system-ui, sans-serif"
+            >
+              {m.num}
+            </text>
+          )}
         </g>
       ))}
 

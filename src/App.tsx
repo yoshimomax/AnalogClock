@@ -301,6 +301,7 @@ function App() {
           faceColor={settings.faceColor}
           showSeconds={settings.showSeconds}
           showDate={settings.showDate}
+          showNumbers={settings.showNumbers}
           targetEnabled={settings.targetEnabled}
           targetHour={settings.targetHour}
           targetMinute={settings.targetMinute}
