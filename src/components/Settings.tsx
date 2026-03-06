@@ -122,6 +122,15 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
                     style={{ width: 60 }}
                   />
                   <span>min</span>
+                  <button
+                    className="set-offset-btn"
+                    onClick={() => {
+                      const t = new Date(Date.now() + settings.targetOffsetMinutes * 60_000)
+                      const h = t.getHours() % 12 || 12
+                      onUpdate({ targetMode: 'absolute', targetHour: h, targetMinute: t.getMinutes() })
+                    }}
+                    title="現在時刻 + offset で固定する"
+                  >Set</button>
                 </>
               ) : (
                 <>
