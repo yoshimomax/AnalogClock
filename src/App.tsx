@@ -10,11 +10,11 @@ const SETTINGS_H    = 560
 
 function App() {
   const [settings, setSettings] = useState<SettingsType>(defaultSettings)
-  const [hoverState, setHoverState] = useState<'none' | 'hover' | 'wake'>('none')
+  const [hoverState, setHoverState] = useState<'none' | 'hover' | 'wake' | 'drag'>('none')
 
   const settingsRef     = useRef(settings)
   settingsRef.current   = settings
-  const hoverStateRef   = useRef<'none' | 'hover' | 'wake'>('none')
+  const hoverStateRef   = useRef<'none' | 'hover' | 'wake' | 'drag'>('none')
   const isDraggingRef   = useRef(false)
   const settingsOpenRef = useRef(false)  // true while the settings window exists
 
@@ -153,10 +153,12 @@ function App() {
     return () => { unlisten?.() }
   }, [recoverPosition])
 
-  // On startup: position clock at top-right of primary monitor, then reveal it
+  // On startup: set size first, then position at top-right of primary monitor, then reveal.
+  // setSize must complete before setPosition so the window has the correct dimensions
+  // before we calculate its placement (avoids flex-centering offset mismatch on first paint).
   useEffect(() => {
     if (!isTauri) return
-    import('@tauri-apps/api/window').then(async ({ appWindow, LogicalPosition, primaryMonitor }) => {
+    import('@tauri-apps/api/window').then(async ({ appWindow, LogicalPosition, LogicalSize, primaryMonitor }) => {
       const monitor = await primaryMonitor()
       if (!monitor) return
       const sc     = monitor.scaleFactor
@@ -165,6 +167,7 @@ function App() {
       const mW     = monitor.size.width  / sc
       const s      = settingsRef.current.size
       const margin = settingsRef.current.snapMargin
+      await appWindow.setSize(new LogicalSize(s, s))
       await appWindow.setPosition(new LogicalPosition(mX + mW - s - margin, mY + margin))
       await appWindow.show()
     })
@@ -294,17 +297,18 @@ function App() {
           const cCY     = pos.y + clockPx * 0.5
           const clockR  = clockPx * 0.45
 
-          const inWindow = Math.hypot(cx - cCX, cy - cCY) <= clockR + 5 * sc
-          const gearCY   = pos.y + clockPx * 0.645
-          const inGear   = Math.hypot(cx - cCX, cy - gearCY) <= 28 * sc
+          const inWindow  = Math.hypot(cx - cCX, cy - cCY) <= clockR + 5 * sc
+          const gearCY    = pos.y + clockPx * 0.645
+          const inGear    = Math.hypot(cx - cCX, cy - gearCY) <= 28 * sc
+          const inCenter  = Math.hypot(cx - cCX, cy - cCY) <= 22 * sc
 
-          const next = inGear ? 'wake' : inWindow ? 'hover' : 'none'
+          const next = inGear ? 'wake' : inCenter ? 'drag' : inWindow ? 'hover' : 'none'
           if (next !== hoverStateRef.current) {
             hoverStateRef.current = next
             setHoverState(next)
           }
 
-          if (inGear) {
+          if (inGear || inCenter) {
             if (inactiveTimer) { clearTimeout(inactiveTimer); inactiveTimer = null }
             if (!interactive) await setPassthrough(false)
           } else if (interactive && !settingsOpenRef.current && !isDraggingRef.current) {
@@ -339,8 +343,8 @@ function App() {
   // In click-through mode, dragging is only allowed from the gear zone (hoverState === 'wake').
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0 || !isTauri) return
-    // Click-through mode: outside gear zone means clicks should fall through — don't start drag
-    if (settingsRef.current.clickThrough && hoverStateRef.current !== 'wake') return
+    // Click-through mode: only interact from gear zone (wake) or center drag zone (drag)
+    if (settingsRef.current.clickThrough && hoverStateRef.current !== 'wake' && hoverStateRef.current !== 'drag') return
     const startX = e.screenX, startY = e.screenY
     const isGear = (e.target as Element).closest('.wake-gear') !== null
 
@@ -396,7 +400,7 @@ function App() {
   }, [openSettings])
 
   const clockOpacity = settings.clickThrough
-    ? hoverState === 'wake' ? 1 : hoverState === 'hover' ? 0.06 : settings.opacity
+    ? (hoverState === 'wake' || hoverState === 'drag') ? 1 : hoverState === 'hover' ? 0.06 : settings.opacity
     : settings.opacity
 
   return (
@@ -434,6 +438,12 @@ function App() {
             title="アラームを止める"
           >Stop Alarm</button>
         )}
+        <div
+          className="drag-handle"
+          onDoubleClick={e => e.stopPropagation()}
+          onContextMenu={e => e.stopPropagation()}
+          title="ドラッグして移動 / Drag to move"
+        />
         <div
           className="wake-gear"
           onDoubleClick={e => e.stopPropagation()}
