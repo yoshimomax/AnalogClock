@@ -16,9 +16,16 @@
         "open": true
       },
       "window": {
+        "create": true,
         "startDragging": true,
+        "show": true,
+        "hide": true,
         "close": true,
-        "setAlwaysOnTop": true
+        "setFocus": true,
+        "setAlwaysOnTop": true,
+        "setPosition": true,
+        "setSize": true,
+        "setIgnoreCursorEvents": true
       }
     },
     "bundle": {
@@ -40,21 +47,26 @@
         }
       }
     },
+    "systemTray": {
+      "iconPath": "icons/32x32.png",
+      "iconAsTemplate": false,
+      "menuOnLeftClick": false
+    },
     "security": {
       "csp": null
     },
     "windows": [
       {
         "title": "Analog Clock",
-        "width": 350,
-        "height": 350,
+        "width": 300,
+        "height": 300,
         "resizable": false,
         "fullscreen": false,
         "transparent": true,
         "decorations": false,
         "alwaysOnTop": true,
-        "skipTaskbar": false,
-        "center": true
+        "skipTaskbar": true,
+        "visible": false
       }
     ]
   }

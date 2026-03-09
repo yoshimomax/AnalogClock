@@ -5,8 +5,16 @@ export interface Settings {
   targetEnabled: boolean
   targetHour: number
   targetMinute: number
+  targetColor: string
+  targetAlarmEnabled: boolean
+  targetMode: 'absolute' | 'offset'
+  targetOffsetMinutes: number
   alwaysOnTop: boolean
   showSeconds: boolean
+  showDate: boolean
+  showNumbers: boolean
+  clickThrough: boolean
+  snapMargin: number
 }
 
 export const defaultSettings: Settings = {
@@ -16,8 +24,16 @@ export const defaultSettings: Settings = {
   targetEnabled: false,
   targetHour: 12,
   targetMinute: 0,
+  targetColor: '#00aa00',
+  targetAlarmEnabled: false,
+  targetMode: 'absolute',
+  targetOffsetMinutes: 30,
   alwaysOnTop: true,
   showSeconds: true,
+  showDate: false,
+  showNumbers: true,
+  clickThrough: false,
+  snapMargin: 0,
 }
 
 export const PRESET_COLORS = [
@@ -35,11 +51,16 @@ export const PRESET_COLORS = [
 
 const STORAGE_KEY = 'analog-clock-settings'
 
-export async function loadSettings(): Promise<Settings> {
+export function loadSettings(): Settings {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
-      return { ...defaultSettings, ...JSON.parse(saved) }
+      const merged = { ...defaultSettings, ...JSON.parse(saved) }
+      // Migrate: targetHour must be 1-12
+      if (merged.targetHour < 1 || merged.targetHour > 12) {
+        merged.targetHour = ((merged.targetHour - 1 + 12) % 12) + 1
+      }
+      return merged
     }
   } catch (e) {
     console.error('Failed to load settings:', e)
@@ -47,7 +68,7 @@ export async function loadSettings(): Promise<Settings> {
   return defaultSettings
 }
 
-export async function saveSettings(settings: Settings): Promise<void> {
+export function saveSettings(settings: Settings): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
   } catch (e) {

@@ -1,148 +1,195 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Settings as SettingsType, PRESET_COLORS } from '../utils/settings'
+import HelpPanel from './HelpPanel'
 
-interface SettingsProps {
+const isTauri = '__TAURI__' in window
+
+interface Props {
   settings: SettingsType
-  onUpdate: (settings: Partial<SettingsType>) => void
+  onUpdate: (s: Partial<SettingsType>) => void
   onClose: () => void
   onQuit: () => void
 }
 
-export default function Settings({ settings, onUpdate, onClose, onQuit }: SettingsProps) {
-  const colorInputRef = useRef<HTMLInputElement>(null)
+type Corner = 'tl' | 'tr' | 'bl' | 'br'
 
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose()
-    }
-  }
+async function snapToCorner(corner: Corner, margin: number) {
+  if (!isTauri) return
+  const { emit } = await import('@tauri-apps/api/event')
+  await emit('snap-to-corner', { corner, margin })
+}
+
+export default function Settings({ settings, onUpdate, onClose, onQuit }: Props) {
+  const colorInputRef = useRef<HTMLInputElement>(null)
+  const [showHelp, setShowHelp] = useState(false)
+
+  if (showHelp) return <HelpPanel onBack={() => setShowHelp(false)} />
 
   return (
-    <div className="settings-overlay" onClick={handleOverlayClick}>
-      <div className="settings-panel" onClick={e => e.stopPropagation()}>
-        <h2>Settings</h2>
+    <div className="settings-panel">
 
-        {/* Opacity */}
-        <div className="settings-section">
-          <label>Opacity</label>
-          <input
-            type="range"
-            min="30"
-            max="100"
-            value={settings.opacity * 100}
-            onChange={e => onUpdate({ opacity: parseInt(e.target.value) / 100 })}
-          />
-          <div className="slider-value">{Math.round(settings.opacity * 100)}%</div>
+        <h2>⚙ Settings <button className="help-open-btn" onClick={() => setShowHelp(true)} title="操作ガイドを開く">?</button></h2>
+
+        {/* Sliders */}
+        <div className="slider-row">
+          <span className="slider-label">Opacity</span>
+          <input type="range" min="30" max="100"
+            value={Math.round(settings.opacity * 100)}
+            onChange={e => onUpdate({ opacity: parseInt(e.target.value) / 100 })} />
+          <span className="slider-val">{Math.round(settings.opacity * 100)}%</span>
         </div>
 
-        {/* Size */}
-        <div className="settings-section">
-          <label>Size</label>
-          <input
-            type="range"
-            min="150"
-            max="500"
+        <div className="slider-row">
+          <span className="slider-label">Size</span>
+          <input type="range" min="80" max="500"
             value={settings.size}
-            onChange={e => onUpdate({ size: parseInt(e.target.value) })}
-          />
-          <div className="slider-value">{settings.size}px</div>
+            onChange={e => onUpdate({ size: parseInt(e.target.value) })} />
+          <span className="slider-val">{settings.size}</span>
         </div>
 
-        {/* Face Color */}
-        <div className="settings-section">
-          <label>Face Color</label>
-          <div className="color-presets">
-            {PRESET_COLORS.map(({ color, name }) => (
+        {/* Color presets */}
+        <div className="color-presets">
+          {PRESET_COLORS.map(({ color, name }) => (
+            <button key={color}
+              className={`color-preset${settings.faceColor === color ? ' active' : ''}`}
+              style={{ backgroundColor: color }}
+              onClick={() => onUpdate({ faceColor: color })}
+              title={name} />
+          ))}
+        </div>
+        <button className="custom-color-btn" onClick={() => colorInputRef.current?.click()}>
+          Custom Color…
+        </button>
+        <input ref={colorInputRef} type="color" className="color-input-hidden"
+          value={settings.faceColor}
+          onChange={e => onUpdate({ faceColor: e.target.value })} />
+
+        {/* Toggles – two per row */}
+        <div className="checks-grid">
+          {([
+            ['showSeconds',   'Seconds'],
+            ['alwaysOnTop',   'Always on top'],
+            ['showDate',      'Date display'],
+            ['showNumbers',   'Numbers'],
+            ['clickThrough',  'Click-through'],
+            ['targetEnabled', 'Target time'],
+          ] as [keyof typeof settings, string][]).map(([key, label]) => (
+            <label key={key} className="check-label">
+              <span className="toggle">
+                <input type="checkbox"
+                  checked={settings[key] as boolean}
+                  onChange={e => onUpdate({ [key]: e.target.checked })} />
+                <span className="toggle-track" />
+              </span>
+              {label}
+            </label>
+          ))}
+        </div>
+
+        {/* Target time inputs (conditional) */}
+        {settings.targetEnabled && (
+          <>
+            {/* Mode toggle */}
+            <div className="target-mode-toggle">
               <button
-                key={color}
-                className={`color-preset ${settings.faceColor === color ? 'active' : ''}`}
-                style={{ backgroundColor: color }}
-                onClick={() => onUpdate({ faceColor: color })}
-                title={name}
-              />
-            ))}
-          </div>
-          <button
-            className="custom-color-btn"
-            onClick={() => colorInputRef.current?.click()}
-          >
-            Custom Color...
-          </button>
-          <input
-            ref={colorInputRef}
-            type="color"
-            className="color-input-hidden"
-            value={settings.faceColor}
-            onChange={e => onUpdate({ faceColor: e.target.value })}
-          />
-        </div>
-
-        {/* Target Time */}
-        <div className="settings-section">
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={settings.targetEnabled}
-              onChange={e => onUpdate({ targetEnabled: e.target.checked })}
-            />
-            Show Target Time
-          </label>
-          {settings.targetEnabled && (
-            <div className="time-inputs">
-              <div className="time-input-group">
-                <input
-                  type="number"
-                  min="0"
-                  max="23"
-                  value={settings.targetHour}
-                  onChange={e => onUpdate({ targetHour: Math.max(0, Math.min(23, parseInt(e.target.value) || 0)) })}
-                />
-                <span>時</span>
-              </div>
-              <div className="time-input-group">
-                <input
-                  type="number"
-                  min="0"
-                  max="59"
-                  value={settings.targetMinute}
-                  onChange={e => onUpdate({ targetMinute: Math.max(0, Math.min(59, parseInt(e.target.value) || 0)) })}
-                />
-                <span>分</span>
-              </div>
+                className={`mode-btn${settings.targetMode === 'absolute' ? ' active' : ''}`}
+                onClick={() => onUpdate({ targetMode: 'absolute' })}
+              >Fixed Time</button>
+              <button
+                className={`mode-btn${settings.targetMode === 'offset' ? ' active' : ''}`}
+                onClick={() => onUpdate({ targetMode: 'offset' })}
+              >From Now</button>
             </div>
-          )}
-        </div>
 
-        {/* Options */}
-        <div className="settings-section">
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={settings.alwaysOnTop}
-              onChange={e => onUpdate({ alwaysOnTop: e.target.checked })}
-            />
-            Always on Top
-          </label>
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={settings.showSeconds}
-              onChange={e => onUpdate({ showSeconds: e.target.checked })}
-            />
-            Show Second Hand
-          </label>
-        </div>
+            <div className="time-inputs">
+              {settings.targetMode === 'offset' ? (
+                <>
+                  <input
+                    type="number" value={settings.targetOffsetMinutes}
+                    onChange={e => {
+                      if (e.target.value === '') return
+                      const v = Math.max(1, Math.min(720, Math.round(+e.target.value)))
+                      onUpdate({ targetOffsetMinutes: v })
+                    }}
+                    style={{ width: 60 }}
+                  />
+                  <span>min</span>
+                  <button
+                    className="set-offset-btn"
+                    onClick={() => {
+                      const t = new Date(Date.now() + settings.targetOffsetMinutes * 60_000)
+                      const h = t.getHours() % 12 || 12
+                      onUpdate({ targetMode: 'absolute', targetHour: h, targetMinute: t.getMinutes() })
+                    }}
+                    title="現在時刻 + offset で固定する"
+                  >Set</button>
+                </>
+              ) : (
+                <>
+                  <input
+                    type="number" value={settings.targetHour}
+                    onChange={e => {
+                      if (e.target.value === '') return
+                      const v = +e.target.value
+                      if (v > 12) onUpdate({ targetHour: 1 })
+                      else if (v < 1) onUpdate({ targetHour: 12 })
+                      else onUpdate({ targetHour: Math.round(v) })
+                    }}
+                  />
+                  <span>:</span>
+                  <input
+                    type="number" value={String(settings.targetMinute).padStart(2, '0')}
+                    onChange={e => {
+                      if (e.target.value === '') return
+                      const v = +e.target.value
+                      if (v > 59) onUpdate({ targetMinute: 0 })
+                      else if (v < 0) onUpdate({ targetMinute: 59 })
+                      else onUpdate({ targetMinute: Math.round(v) })
+                    }}
+                  />
+                </>
+              )}
+              <input type="color" value={settings.targetColor}
+                onChange={e => onUpdate({ targetColor: e.target.value })}
+                style={{ width: 28, height: 28, padding: 1, border: '1.5px solid #d0d8e8', borderRadius: 6, cursor: 'pointer', background: 'none' }}
+                title="針の色" />
+            </div>
+            <label className="check-label" style={{ marginTop: 4 }}>
+              <span className="toggle">
+                <input type="checkbox" checked={settings.targetAlarmEnabled}
+                  onChange={e => onUpdate({ targetAlarmEnabled: e.target.checked })} />
+                <span className="toggle-track" />
+              </span>
+              Alarm (opacity flash)
+            </label>
+          </>
+        )}
 
-        {/* Buttons */}
+        {/* Corner snap */}
+        {isTauri && (
+          <>
+            <div className="slider-row">
+              <span className="slider-label">Corner margin</span>
+              <input type="range" min="0" max="100"
+                value={settings.snapMargin}
+                onChange={e => onUpdate({ snapMargin: parseInt(e.target.value) })} />
+              <span className="slider-val">{settings.snapMargin}px</span>
+            </div>
+            <div className="corner-snap-grid">
+              <button className="corner-btn" onClick={() => snapToCorner('tl', settings.snapMargin)} title="Top-left">↖</button>
+              <button className="corner-btn" onClick={() => snapToCorner('tr', settings.snapMargin)} title="Top-right">↗</button>
+              <button className="corner-btn" onClick={() => snapToCorner('bl', settings.snapMargin)} title="Bottom-left">↙</button>
+              <button className="corner-btn" onClick={() => snapToCorner('br', settings.snapMargin)} title="Bottom-right">↘</button>
+            </div>
+          </>
+        )}
+
+        {/* Action buttons */}
         <div className="settings-buttons">
-          <button className="btn btn-danger" onClick={onQuit}>
-            Quit
-          </button>
-          <button className="btn btn-primary" onClick={onClose}>
-            Close
-          </button>
+          <button className="btn btn-danger" onClick={onQuit}>Quit</button>
+          <button className="btn btn-primary" onClick={onClose}>Close</button>
         </div>
-      </div>
+
     </div>
   )
 }

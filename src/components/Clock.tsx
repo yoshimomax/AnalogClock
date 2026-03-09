@@ -4,9 +4,14 @@ interface ClockProps {
   size: number
   faceColor: string
   showSeconds: boolean
+  showDate: boolean
+  showNumbers: boolean
   targetEnabled: boolean
   targetHour: number
   targetMinute: number
+  targetColor: string
+  targetMode?: 'absolute' | 'offset'
+  targetOffsetMinutes?: number
 }
 
 function getLuminance(hex: string): number {
@@ -20,9 +25,14 @@ export default function Clock({
   size,
   faceColor,
   showSeconds,
+  showDate,
+  showNumbers,
   targetEnabled,
   targetHour,
   targetMinute,
+  targetColor,
+  targetMode = 'absolute',
+  targetOffsetMinutes = 30,
 }: ClockProps) {
   const [time, setTime] = useState(new Date())
 
@@ -43,12 +53,29 @@ export default function Clock({
   const minuteAngle = minutes * 6 + seconds * 0.1
   const hourAngle = hours * 30 + minutes * 0.5
 
-  const targetHourAngle = (targetHour % 12) * 30 + targetMinute * 0.5
-  const targetMinuteAngle = targetMinute * 6
+  const effectiveTarget = useMemo(() => {
+    if (targetMode === 'offset') {
+      const t = new Date(time.getTime() + targetOffsetMinutes * 60_000)
+      return { h: t.getHours() % 12, m: t.getMinutes() }
+    }
+    return { h: targetHour % 12, m: targetMinute }
+  }, [targetMode, targetOffsetMinutes, time, targetHour, targetMinute])
+
+  const targetHourAngle = effectiveTarget.h * 30 + effectiveTarget.m * 0.5
+  const targetMinuteAngle = effectiveTarget.m * 6
 
   const center = size / 2
   const radius = size * 0.45
   const fontSize = Math.max(12, size * 0.06)
+
+  // Date display: midpoint between center and 3 o'clock position
+  const dateX = center + radius * 0.325
+  const dateY = center
+  const dateFontSize = Math.max(9, size * 0.048)
+  const dateW = Math.max(18, dateFontSize * 1.8)   // fits "31" + minimal padding
+  const dateH = Math.max(12, dateFontSize * 1.35)  // tight line-height
+  const today = new Date()
+  const dateStr = `${today.getDate()}`
 
   const hourMarkers = useMemo(() => {
     return Array.from({ length: 12 }, (_, i) => {
@@ -85,7 +112,7 @@ export default function Clock({
     <svg
       width={size}
       height={size}
-      style={{ filter: 'drop-shadow(0 4px 20px rgba(0,0,0,0.25))' }}
+      style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))' }}
     >
       <defs>
         {/* Gradient for clock face */}
@@ -164,44 +191,47 @@ export default function Clock({
             strokeWidth="3"
             strokeLinecap="round"
           />
-          <text
-            x={m.numX}
-            y={m.numY}
-            fill={textColor}
-            fontSize={fontSize}
-            fontWeight="700"
-            textAnchor="middle"
-            dominantBaseline="central"
-            fontFamily="system-ui, sans-serif"
-          >
-            {m.num}
-          </text>
+          {showNumbers && (
+            <text
+              x={m.numX}
+              y={m.numY}
+              fill={textColor}
+              fontSize={fontSize}
+              fontWeight="700"
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontFamily="system-ui, sans-serif"
+            >
+              {m.num}
+            </text>
+          )}
         </g>
       ))}
 
-      {/* Target time hands */}
-      {targetEnabled && (
-        <g opacity="0.7">
-          <line
-            x1={center}
-            y1={center}
-            x2={center + radius * 0.5 * Math.sin(targetHourAngle * Math.PI / 180)}
-            y2={center - radius * 0.5 * Math.cos(targetHourAngle * Math.PI / 180)}
-            stroke="#00aa00"
-            strokeWidth="5"
-            strokeLinecap="round"
-            strokeDasharray="8 4"
+      {/* Date display window: between center and 3 o'clock (rendered before hands) */}
+      {showDate && (
+        <g>
+          <rect
+            x={dateX - dateW / 2}
+            y={dateY - dateH / 2}
+            width={dateW}
+            height={dateH}
+            fill={faceColor}
+            stroke={secondaryColor}
+            strokeWidth="1.2"
+            rx="3"
+            opacity="0.9"
           />
-          <line
-            x1={center}
-            y1={center}
-            x2={center + radius * 0.7 * Math.sin(targetMinuteAngle * Math.PI / 180)}
-            y2={center - radius * 0.7 * Math.cos(targetMinuteAngle * Math.PI / 180)}
-            stroke="#00aa00"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeDasharray="8 4"
-          />
+          <text
+            x={dateX}
+            y={dateY}
+            fill={textColor}
+            fontSize={dateFontSize}
+            fontWeight="600"
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontFamily="system-ui, sans-serif"
+          >{dateStr}</text>
         </g>
       )}
 
@@ -242,6 +272,32 @@ export default function Clock({
             strokeLinecap="round"
           />
         </>
+      )}
+
+      {/* Target time hands (rendered after current hands so they appear in front) */}
+      {targetEnabled && (
+        <g opacity="0.85">
+          <line
+            x1={center}
+            y1={center}
+            x2={center + radius * 0.5 * Math.sin(targetHourAngle * Math.PI / 180)}
+            y2={center - radius * 0.5 * Math.cos(targetHourAngle * Math.PI / 180)}
+            stroke={targetColor}
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeDasharray="8 4"
+          />
+          <line
+            x1={center}
+            y1={center}
+            x2={center + radius * 0.7 * Math.sin(targetMinuteAngle * Math.PI / 180)}
+            y2={center - radius * 0.7 * Math.cos(targetMinuteAngle * Math.PI / 180)}
+            stroke={targetColor}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray="8 4"
+          />
+        </g>
       )}
 
       {/* Center cap */}
