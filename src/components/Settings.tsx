@@ -37,7 +37,7 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
 
         <div className="slider-row">
           <span className="slider-label">Size</span>
-          <input type="range" min="150" max="500"
+          <input type="range" min="80" max="500"
             value={settings.size}
             onChange={e => onUpdate({ size: parseInt(e.target.value) })} />
           <span className="slider-val">{settings.size}</span>
