@@ -308,7 +308,7 @@ function App() {
 
           const inWindow  = Math.hypot(cx - cCX, cy - cCY) <= clockR + 5 * sc
           const gearCY    = pos.y + clockPx * 0.645
-          const inGear    = Math.hypot(cx - cCX, cy - gearCY) <= 28 * sc
+          const inGear    = Math.hypot(cx - cCX, cy - gearCY) <= 19 * sc
 
           const next = inGear ? 'wake' : inCenter ? 'drag' : inWindow ? 'hover' : 'none'
           if (next !== hoverStateRef.current) {
