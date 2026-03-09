@@ -280,7 +280,7 @@ function App() {
         await new Promise(r => setTimeout(r, 150))
         if (!active) break
 
-        if (settingsOpenRef.current) {
+        if (settingsOpenRef.current && !isDraggingRef.current) {
           if (!interactive) await setPassthrough(false)
           if (hoverStateRef.current !== 'none') { hoverStateRef.current = 'none'; setHoverState('none') }
           continue
@@ -296,11 +296,19 @@ function App() {
           const cCX     = pos.x + clockPx * 0.5
           const cCY     = pos.y + clockPx * 0.5
           const clockR  = clockPx * 0.45
+          const inCenter  = Math.hypot(cx - cCX, cy - cCY) <= 22 * sc
+
+          // While settings panel is open only expose the centre drag zone
+          if (settingsOpenRef.current) {
+            if (!interactive) await setPassthrough(false)
+            const next = inCenter ? 'drag' : 'none'
+            if (next !== hoverStateRef.current) { hoverStateRef.current = next; setHoverState(next) }
+            continue
+          }
 
           const inWindow  = Math.hypot(cx - cCX, cy - cCY) <= clockR + 5 * sc
           const gearCY    = pos.y + clockPx * 0.645
           const inGear    = Math.hypot(cx - cCX, cy - gearCY) <= 28 * sc
-          const inCenter  = Math.hypot(cx - cCX, cy - cCY) <= 22 * sc
 
           const next = inGear ? 'wake' : inCenter ? 'drag' : inWindow ? 'hover' : 'none'
           if (next !== hoverStateRef.current) {
