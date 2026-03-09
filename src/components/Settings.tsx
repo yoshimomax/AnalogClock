@@ -1,5 +1,6 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Settings as SettingsType, PRESET_COLORS } from '../utils/settings'
+import HelpPanel from './HelpPanel'
 
 const isTauri = '__TAURI__' in window
 
@@ -20,11 +21,14 @@ async function snapToCorner(corner: Corner, margin: number) {
 
 export default function Settings({ settings, onUpdate, onClose, onQuit }: Props) {
   const colorInputRef = useRef<HTMLInputElement>(null)
+  const [showHelp, setShowHelp] = useState(false)
+
+  if (showHelp) return <HelpPanel onBack={() => setShowHelp(false)} />
 
   return (
     <div className="settings-panel">
 
-        <h2>⚙ Settings</h2>
+        <h2>⚙ Settings <button className="help-open-btn" onClick={() => setShowHelp(true)} title="操作ガイドを開く">?</button></h2>
 
         {/* Sliders */}
         <div className="slider-row">
