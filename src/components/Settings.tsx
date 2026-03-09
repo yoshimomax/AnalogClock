@@ -64,38 +64,26 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
           value={settings.faceColor}
           onChange={e => onUpdate({ faceColor: e.target.value })} />
 
-        {/* Checkboxes – two per row */}
+        {/* Toggles – two per row */}
         <div className="checks-grid">
-          <label className="check-label">
-            <input type="checkbox" checked={settings.showSeconds}
-              onChange={e => onUpdate({ showSeconds: e.target.checked })} />
-            Seconds
-          </label>
-          <label className="check-label">
-            <input type="checkbox" checked={settings.alwaysOnTop}
-              onChange={e => onUpdate({ alwaysOnTop: e.target.checked })} />
-            Always on top
-          </label>
-          <label className="check-label">
-            <input type="checkbox" checked={settings.showDate}
-              onChange={e => onUpdate({ showDate: e.target.checked })} />
-            Date display
-          </label>
-          <label className="check-label">
-            <input type="checkbox" checked={settings.showNumbers}
-              onChange={e => onUpdate({ showNumbers: e.target.checked })} />
-            Numbers
-          </label>
-          <label className="check-label">
-            <input type="checkbox" checked={settings.clickThrough}
-              onChange={e => onUpdate({ clickThrough: e.target.checked })} />
-            Click-through
-          </label>
-          <label className="check-label">
-            <input type="checkbox" checked={settings.targetEnabled}
-              onChange={e => onUpdate({ targetEnabled: e.target.checked })} />
-            Target time
-          </label>
+          {([
+            ['showSeconds',   'Seconds'],
+            ['alwaysOnTop',   'Always on top'],
+            ['showDate',      'Date display'],
+            ['showNumbers',   'Numbers'],
+            ['clickThrough',  'Click-through'],
+            ['targetEnabled', 'Target time'],
+          ] as [keyof typeof settings, string][]).map(([key, label]) => (
+            <label key={key} className="check-label">
+              <span className="toggle">
+                <input type="checkbox"
+                  checked={settings[key] as boolean}
+                  onChange={e => onUpdate({ [key]: e.target.checked })} />
+                <span className="toggle-track" />
+              </span>
+              {label}
+            </label>
+          ))}
         </div>
 
         {/* Target time inputs (conditional) */}
@@ -167,8 +155,11 @@ export default function Settings({ settings, onUpdate, onClose, onQuit }: Props)
                 title="針の色" />
             </div>
             <label className="check-label" style={{ marginTop: 4 }}>
-              <input type="checkbox" checked={settings.targetAlarmEnabled}
-                onChange={e => onUpdate({ targetAlarmEnabled: e.target.checked })} />
+              <span className="toggle">
+                <input type="checkbox" checked={settings.targetAlarmEnabled}
+                  onChange={e => onUpdate({ targetAlarmEnabled: e.target.checked })} />
+                <span className="toggle-track" />
+              </span>
               Alarm (opacity flash)
             </label>
           </>
